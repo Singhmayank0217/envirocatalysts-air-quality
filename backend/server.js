@@ -519,6 +519,134 @@ app.get("/api/v1/stations", (req, res) => {
 
 
 // ----------------------------------------------------
+// CITY MAP (MILESTONE 6A)
+// ----------------------------------------------------
+
+function getAqiCategory(aqi) {
+    if (aqi === null || aqi === undefined || isNaN(aqi)) {
+        return null;
+    }
+    const num = Number(aqi);
+    if (num <= 50) return "Good";
+    if (num <= 100) return "Satisfactory";
+    if (num <= 200) return "Moderate";
+    if (num <= 300) return "Poor";
+    if (num <= 400) return "Very Poor";
+    return "Severe";
+}
+
+function handleCityMap(req, res) {
+    try {
+        const {
+            city,
+            baseYear = "FY2024-25",
+            comparisonYear = "FY2025-26",
+            metric = "aqi"
+        } = req.query;
+
+        // Constraint: Only 'aqi' is supported in Milestone 6A.
+        // Return explicit 400 for unsupported metrics (e.g. concentration).
+        if (metric && metric.toLowerCase() !== "aqi") {
+            return res.status(400).json({
+                error: `Unsupported metric '${metric}'. Milestone 6A supports metric='aqi'. Concentration mapping will be supported in a future update.`
+            });
+        }
+
+        let citySQL = "SELECT DISTINCT requested_city AS city FROM city_daily_metrics";
+        const cityParams = [];
+
+        if (city && city !== "All") {
+            citySQL += " WHERE requested_city = ?";
+            cityParams.push(city);
+        }
+
+        citySQL += " ORDER BY requested_city";
+
+        const cities = db.prepare(citySQL).all(...cityParams);
+
+        // Fetch city metadata (state, latitude, longitude) if populated
+        const metadataRows = db.prepare("SELECT city, state, latitude, longitude FROM city_metadata").all();
+        const metaMap = new Map(metadataRows.map(m => [m.city, m]));
+
+        // Fetch aggregated AQI for base and comparison years
+        let aqiSQL = `
+            SELECT 
+                requested_city AS city,
+                financial_year,
+                ROUND(AVG(CASE WHEN aqi_available = 1 THEN aqi END), 1) AS avg_aqi,
+                SUM(CASE WHEN aqi_available = 1 THEN 1 ELSE 0 END) AS available_days
+            FROM city_daily_aqi
+            WHERE financial_year IN (?, ?)
+        `;
+        const aqiParams = [baseYear, comparisonYear];
+
+        if (city && city !== "All") {
+            aqiSQL += " AND requested_city = ?";
+            aqiParams.push(city);
+        }
+
+        aqiSQL += " GROUP BY requested_city, financial_year";
+
+        const aqiRows = db.prepare(aqiSQL).all(...aqiParams);
+        const aqiMap = new Map();
+        for (const row of aqiRows) {
+            aqiMap.set(`${row.city}__${row.financial_year}`, row);
+        }
+
+        const data = cities.map(c => {
+            const meta = metaMap.get(c.city) || {};
+            const baseRow = aqiMap.get(`${c.city}__${baseYear}`);
+            const compRow = aqiMap.get(`${c.city}__${comparisonYear}`);
+
+            const baseAvailable = Boolean(baseRow && baseRow.available_days > 0 && baseRow.avg_aqi !== null);
+            const compAvailable = Boolean(compRow && compRow.available_days > 0 && compRow.avg_aqi !== null);
+
+            const baseValue = baseAvailable ? baseRow.avg_aqi : null;
+            const compValue = compAvailable ? compRow.avg_aqi : null;
+
+            return {
+                city: c.city,
+                state: meta.state ?? null,
+                latitude: meta.latitude ?? null,
+                longitude: meta.longitude ?? null,
+                base: {
+                    value: baseValue,
+                    category: getAqiCategory(baseValue),
+                    available: baseAvailable,
+                    days: baseRow?.available_days ?? 0
+                },
+                comparison: {
+                    value: compValue,
+                    category: getAqiCategory(compValue),
+                    available: compAvailable,
+                    days: compRow?.available_days ?? 0
+                }
+            };
+        });
+
+        res.json({
+            filters: {
+                city: city || "All",
+                baseYear,
+                comparisonYear,
+                metric: "aqi"
+            },
+            data
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            error: "Failed to fetch city map data"
+        });
+    }
+}
+
+app.get("/api/city-map", handleCityMap);
+app.get("/api/v1/city-map", handleCityMap);
+
+
+// ----------------------------------------------------
 // SERVER
 // ----------------------------------------------------
 
@@ -533,5 +661,6 @@ app.listen(PORT, "0.0.0.0", () => {
     console.log(`Health:   http://localhost:${PORT}/api/health`);
     console.log(`Cities:   http://localhost:${PORT}/api/cities`);
     console.log(`Overview: http://localhost:${PORT}/api/overview`);
+    console.log(`City Map: http://localhost:${PORT}/api/city-map`);
     console.log("");
 });

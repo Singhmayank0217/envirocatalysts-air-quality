@@ -62,3 +62,26 @@ export async function getHourly({ city, station, pollutant, start, end, limit } 
 
     return request(`/hourly?${queryParams.join("&")}`);
 }
+
+export async function getCityMap({ city, baseYear, comparisonYear, metric } = {}) {
+    const queryParams = [];
+
+    if (city && city !== "All") {
+        queryParams.push(`city=${encodeURIComponent(city)}`);
+    }
+
+    if (baseYear) {
+        queryParams.push(`baseYear=${encodeURIComponent(baseYear)}`);
+    }
+
+    if (comparisonYear) {
+        queryParams.push(`comparisonYear=${encodeURIComponent(comparisonYear)}`);
+    }
+
+    if (metric) {
+        queryParams.push(`metric=${encodeURIComponent(metric)}`);
+    }
+
+    const query = queryParams.length > 0 ? `?${queryParams.join("&")}` : "";
+    return request(`/city-map${query}`);
+}

@@ -12,13 +12,14 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-import { getFilters, getOverview, getStations, getHourly } from "./src/services/api";
+import { getFilters, getOverview, getStations, getHourly, getCityMap } from "./src/services/api";
 import FinancialYearSelector from "./src/components/FinancialYearSelector";
 import CitySelector from "./src/components/CitySelector";
 import CityCategorySelector from "./src/components/CityCategorySelector";
 import AqiCategoryDaysCard from "./src/components/AqiCategoryDaysCard";
 import AveragePollutantConcentrationCard from "./src/components/AveragePollutantConcentrationCard";
 import DominantPollutantDaysCard from "./src/components/DominantPollutantDaysCard";
+import CityMapCard from "./src/components/CityMapCard";
 import StationSelector from "./src/components/StationSelector";
 import PollutantSelector from "./src/components/PollutantSelector";
 import PeriodSelector from "./src/components/PeriodSelector";
@@ -35,12 +36,41 @@ function OverviewScreen({ navigation }) {
   const [updatingCity, setUpdatingCity] = useState(false);
   const [error, setError] = useState("");
 
+  const [cityMapData, setCityMapData] = useState(null);
+  const [cityMapLoading, setCityMapLoading] = useState(false);
+  const [cityMapError, setCityMapError] = useState("");
+
+  const baseYear = overview?.filters?.baseYear || "FY2024-25";
+  const comparisonYear = overview?.filters?.comparisonYear || "FY2025-26";
+
   // Ref to track latest request ID for race-condition prevention
   const requestIdRef = useRef(0);
 
   useEffect(() => {
     loadFilters();
   }, []);
+
+  async function loadCityMapData(bYear = baseYear, cYear = comparisonYear) {
+    try {
+      setCityMapLoading(true);
+      setCityMapError("");
+      const data = await getCityMap({
+        baseYear: bYear,
+        comparisonYear: cYear,
+        metric: "aqi",
+      });
+      setCityMapData(data);
+    } catch (err) {
+      console.error(err);
+      setCityMapError("Unable to load city map data.");
+    } finally {
+      setCityMapLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadCityMapData(baseYear, comparisonYear);
+  }, [baseYear, comparisonYear]);
 
   useEffect(() => {
     if (navigation) {
@@ -259,6 +289,18 @@ function OverviewScreen({ navigation }) {
               comparisonYear={overview.filters?.comparisonYear || "FY2025-26"}
               city={selectedCity}
               pollutantMetadata={filters?.pollutants}
+            />
+
+            {/* 4. CITY AIR QUALITY MAP (MILESTONE 6A) */}
+            <CityMapCard
+              data={cityMapData}
+              loading={cityMapLoading}
+              error={cityMapError}
+              selectedCity={selectedCity}
+              onSelectCity={handleCitySelect}
+              baseYear={baseYear}
+              comparisonYear={comparisonYear}
+              onRetry={() => loadCityMapData(baseYear, comparisonYear)}
             />
           </>
         ) : null}
