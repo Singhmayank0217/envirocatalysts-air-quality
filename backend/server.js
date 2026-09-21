@@ -356,20 +356,32 @@ app.get("/api/hourly", (req, res) => {
 
 
         if (start) {
+            let startFilter = String(start).trim().replace("T", " ");
+            if (/^\d{4}-\d{2}-\d{2}$/.test(startFilter)) {
+                startFilter += " 00:00:00";
+            } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(startFilter)) {
+                startFilter += ":00";
+            }
             sql += `
         AND period_start >= ?
       `;
 
-            params.push(start);
+            params.push(startFilter);
         }
 
 
         if (end) {
+            let endFilter = String(end).trim().replace("T", " ");
+            if (/^\d{4}-\d{2}-\d{2}$/.test(endFilter)) {
+                endFilter += " 23:59:59";
+            } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(endFilter)) {
+                endFilter += ":59";
+            }
             sql += `
         AND period_start <= ?
       `;
 
-            params.push(end);
+            params.push(endFilter);
         }
 
 
