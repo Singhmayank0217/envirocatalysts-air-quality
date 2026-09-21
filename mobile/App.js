@@ -16,6 +16,7 @@ import { getFilters, getOverview } from "./src/services/api";
 import FinancialYearSelector from "./src/components/FinancialYearSelector";
 import CitySelector from "./src/components/CitySelector";
 import CityCategorySelector from "./src/components/CityCategorySelector";
+import AqiCategoryDaysCard from "./src/components/AqiCategoryDaysCard";
 
 const Stack = createNativeStackNavigator();
 
@@ -191,6 +192,14 @@ function OverviewScreen() {
 
         {overview ? (
           <>
+            {/* 1. AQI CATEGORY DAYS (FIRST MAJOR ANALYSIS SECTION) */}
+            <AqiCategoryDaysCard
+              aqiCategoryDays={overview.aqiCategoryDays}
+              baseYear={overview.filters?.baseYear || "FY2024-25"}
+              comparisonYear={overview.filters?.comparisonYear || "FY2025-26"}
+              city={selectedCity}
+            />
+
             <Text style={styles.sectionTitle} accessibilityRole="header">
               Average pollutant concentration
             </Text>
@@ -227,33 +236,6 @@ function OverviewScreen() {
 
                   <Text style={styles.metricDays}>
                     Based on {item.days_available} available days
-                  </Text>
-                </View>
-              );
-            })}
-
-            <Text style={styles.sectionTitle} accessibilityRole="header">
-              AQI category days
-            </Text>
-
-            {overview.aqiCategoryDays?.map((item, index) => {
-              const category = item.aqi_category || item.category || "Unknown";
-              const key = `${item.city || selectedCity}-${item.financial_year || "FY"}-${category}-${index}`;
-
-              return (
-                <View
-                  key={key}
-                  style={styles.categoryRow}
-                  accessible
-                  accessibilityRole="summary"
-                  accessibilityLabel={`${category} AQI days in ${item.financial_year}: ${item.days} days`}
-                >
-                  <Text style={styles.categoryName}>
-                    {category} ({item.financial_year})
-                  </Text>
-
-                  <Text style={styles.categoryValue}>
-                    {item.days}
                   </Text>
                 </View>
               );
