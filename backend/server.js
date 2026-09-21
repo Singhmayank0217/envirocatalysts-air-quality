@@ -99,6 +99,52 @@ app.get("/api/financial-years", (req, res) => {
     }
 });
 
+// ----------------------------------------------------
+// FILTERS
+// ----------------------------------------------------
+
+app.get("/api/v1/filters", (req, res) => {
+    try {
+        const cities = db.prepare(`
+            SELECT DISTINCT requested_city AS city
+            FROM city_daily_metrics
+            ORDER BY requested_city
+        `).all();
+
+        const pollutants = db.prepare(`
+            SELECT pollutant, display_name, unit
+            FROM pollutant_metadata
+            ORDER BY pollutant
+        `).all();
+
+        const financialYears = db.prepare(`
+            SELECT DISTINCT financial_year
+            FROM city_daily_metrics
+            ORDER BY financial_year
+        `).all();
+
+        res.json({
+            cities: cities.map(row => row.city),
+            pollutants,
+            financialYears: financialYears.map(
+                row => row.financial_year
+            ),
+            frequencies: [
+                "Financial Year",
+                "Calendar Year",
+                "Month"
+            ]
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            error: "Failed to fetch filters"
+        });
+    }
+});
+
 
 // ----------------------------------------------------
 // OVERVIEW
@@ -251,6 +297,10 @@ app.get("/api/overview", (req, res) => {
     }
 });
 
+app.get("/api/v1/overview", (req, res) => {
+    req.url = "/api/overview";
+    app._router.handle(req, res);
+});
 
 // ----------------------------------------------------
 // HOURLY ANALYSIS
@@ -363,6 +413,12 @@ app.get("/api/hourly", (req, res) => {
 });
 
 
+app.get("/api/v1/hourly", (req, res) => {
+    req.url = "/api/hourly";
+    app._router.handle(req, res);
+});
+
+
 // ----------------------------------------------------
 // STATIONS
 // ----------------------------------------------------
@@ -416,6 +472,11 @@ app.get("/api/stations", (req, res) => {
             error: "Failed to fetch stations"
         });
     }
+});
+
+app.get("/api/v1/stations", (req, res) => {
+    req.url = "/api/stations";
+    app._router.handle(req, res);
 });
 
 
