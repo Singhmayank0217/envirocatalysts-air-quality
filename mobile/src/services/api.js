@@ -27,3 +27,38 @@ export async function getOverview(city = "Delhi", baseYear, comparisonYear) {
 
     return request(`/overview?${queryParams.join("&")}`);
 }
+
+export async function getStations(city) {
+    const query = city ? `?city=${encodeURIComponent(city)}` : "";
+    return request(`/stations${query}`);
+}
+
+export async function getHourly({ city, station, pollutant, start, end, limit } = {}) {
+    const queryParams = [];
+
+    if (city) {
+        queryParams.push(`city=${encodeURIComponent(city)}`);
+    }
+
+    if (station) {
+        queryParams.push(`station=${encodeURIComponent(station)}`);
+    }
+
+    if (pollutant) {
+        queryParams.push(`pollutant=${encodeURIComponent(pollutant)}`);
+    }
+
+    if (start) {
+        queryParams.push(`start=${encodeURIComponent(start)}`);
+    }
+
+    if (end) {
+        queryParams.push(`end=${encodeURIComponent(end)}`);
+    }
+
+    if (limit !== undefined && limit !== null) {
+        queryParams.push(`limit=${encodeURIComponent(limit)}`);
+    }
+
+    return request(`/hourly?${queryParams.join("&")}`);
+}
