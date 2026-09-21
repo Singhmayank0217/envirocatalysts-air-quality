@@ -17,6 +17,7 @@ import FinancialYearSelector from "./src/components/FinancialYearSelector";
 import CitySelector from "./src/components/CitySelector";
 import CityCategorySelector from "./src/components/CityCategorySelector";
 import AqiCategoryDaysCard from "./src/components/AqiCategoryDaysCard";
+import AveragePollutantConcentrationCard from "./src/components/AveragePollutantConcentrationCard";
 
 const Stack = createNativeStackNavigator();
 
@@ -200,46 +201,14 @@ function OverviewScreen() {
               city={selectedCity}
             />
 
-            <Text style={styles.sectionTitle} accessibilityRole="header">
-              Average pollutant concentration
-            </Text>
-
-            {overview.averagePollutantConcentration?.map((item, index) => {
-              const pollutant = item.pollutant || item.parameter_name || "Unknown";
-              const key = `${item.city || selectedCity}-${item.financial_year || "FY"}-${pollutant}-${index}`;
-
-              return (
-                <View
-                  key={key}
-                  style={styles.metricCard}
-                  accessible
-                  accessibilityRole="summary"
-                  accessibilityLabel={`${pollutant} in ${item.financial_year}: average concentration ${item.average_concentration} ${item.unit || "µg/m³"}, based on ${item.days_available} available days`}
-                >
-                  <View style={styles.metricHeader}>
-                    <Text style={styles.metricName}>
-                      {pollutant}
-                    </Text>
-
-                    <Text style={styles.metricYear}>
-                      {item.financial_year}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.metricValue}>
-                    {item.average_concentration}
-                  </Text>
-
-                  <Text style={styles.metricUnit}>
-                    {item.unit || "µg/m³"}
-                  </Text>
-
-                  <Text style={styles.metricDays}>
-                    Based on {item.days_available} available days
-                  </Text>
-                </View>
-              );
-            })}
+            {/* 2. AVERAGE POLLUTANT CONCENTRATION (SECOND MAJOR ANALYSIS SECTION) */}
+            <AveragePollutantConcentrationCard
+              averagePollutantConcentration={overview.averagePollutantConcentration}
+              baseYear={overview.filters?.baseYear || "FY2024-25"}
+              comparisonYear={overview.filters?.comparisonYear || "FY2025-26"}
+              city={selectedCity}
+              pollutantMetadata={filters?.pollutants}
+            />
 
             <Text style={styles.sectionTitle} accessibilityRole="header">
               Dominant pollutant days
