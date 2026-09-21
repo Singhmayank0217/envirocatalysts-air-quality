@@ -443,38 +443,64 @@ app.get("/api/stations", (req, res) => {
             city
         } = req.query;
 
-
         let sql = `
-      SELECT DISTINCT
+      SELECT
         station_id,
-        requested_city AS city
-      FROM hourly_measurements
+        requested_city AS city,
+        parameter_name AS pollutant,
+        MIN(date) AS min_date,
+        MAX(date) AS max_date
+      FROM daily_station_measurements
     `;
 
         const params = [];
 
-
         if (city) {
-
             sql += `
         WHERE requested_city = ?
       `;
-
             params.push(city);
         }
 
-
         sql += `
-      ORDER BY requested_city, station_id
+      GROUP BY requested_city, station_id, parameter_name
+      ORDER BY requested_city, station_id, parameter_name
     `;
-
 
         const rows = db
             .prepare(sql)
             .all(...params);
 
+        const stationMap = new Map();
 
-        res.json(rows);
+        for (const row of rows) {
+            let station = stationMap.get(row.station_id);
+
+            if (!station) {
+                station = {
+                    station_id: row.station_id,
+                    city: row.city,
+                    min_date: row.min_date,
+                    max_date: row.max_date,
+                    pollutants: {}
+                };
+                stationMap.set(row.station_id, station);
+            } else {
+                if (row.min_date < station.min_date) {
+                    station.min_date = row.min_date;
+                }
+                if (row.max_date > station.max_date) {
+                    station.max_date = row.max_date;
+                }
+            }
+
+            station.pollutants[row.pollutant] = {
+                min_date: row.min_date,
+                max_date: row.max_date
+            };
+        }
+
+        res.json(Array.from(stationMap.values()));
 
     } catch (error) {
 
