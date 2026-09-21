@@ -14,6 +14,16 @@ export async function getFilters() {
     return request("/v1/filters");
 }
 
-export async function getOverview(city = "Delhi") {
-    return request(`/overview?city=${encodeURIComponent(city)}`);
+export async function getOverview(city = "Delhi", baseYear, comparisonYear) {
+    const queryParams = [`city=${encodeURIComponent(city)}`];
+
+    if (baseYear) {
+        queryParams.push(`baseYear=${encodeURIComponent(baseYear)}`);
+    }
+
+    if (comparisonYear) {
+        queryParams.push(`comparisonYear=${encodeURIComponent(comparisonYear)}`);
+    }
+
+    return request(`/overview?${queryParams.join("&")}`);
 }

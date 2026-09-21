@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -13,15 +13,23 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { getFilters, getOverview } from "./src/services/api";
+import FinancialYearSelector from "./src/components/FinancialYearSelector";
+import CitySelector from "./src/components/CitySelector";
+import CityCategorySelector from "./src/components/CityCategorySelector";
 
 const Stack = createNativeStackNavigator();
 
 function OverviewScreen() {
   const [filters, setFilters] = useState(null);
   const [selectedCity, setSelectedCity] = useState("Delhi");
+  const [selectedCategory, setSelectedCategory] = useState("All");
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [updatingCity, setUpdatingCity] = useState(false);
   const [error, setError] = useState("");
+
+  // Ref to track latest request ID for race-condition prevention
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     loadFilters();
@@ -51,26 +59,52 @@ function OverviewScreen() {
   }
 
   async function loadOverview(city) {
+    const currentRequestId = ++requestIdRef.current;
+
     try {
-      setLoading(true);
+      // Preserve previous overview on screen during city updates
+      if (overview) {
+        setUpdatingCity(true);
+      } else {
+        setLoading(true);
+      }
       setError("");
 
       const data = await getOverview(city);
 
+      // Discard stale responses from older requests
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       setOverview(data);
     } catch (err) {
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
       console.error(err);
       setError("Unable to load overview data.");
     } finally {
-      setLoading(false);
+      if (currentRequestId === requestIdRef.current) {
+        setLoading(false);
+        setUpdatingCity(false);
+      }
     }
+  }
+
+  function handleCitySelect(city) {
+    // Avoid redundant API requests when tapping the already selected city
+    if (city === selectedCity && overview) {
+      return;
+    }
+    setSelectedCity(city);
   }
 
   if (loading && !overview) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" />
+        <View style={styles.center} accessibilityRole="progressbar" accessibilityLabel="Loading air quality data">
+          <ActivityIndicator size="large" color="#102A43" />
           <Text style={styles.loadingText}>
             Loading air quality data...
           </Text>
@@ -85,20 +119,27 @@ function OverviewScreen() {
 
       <ScrollView
         contentContainerStyle={styles.container}
-        accessibilityLabel="Air quality overview"
+        accessibilityLabel="Air quality overview screen"
       >
-        <Text style={styles.eyebrow}>ENVIROCATALYSTS</Text>
+        <Text style={styles.eyebrow} accessibilityRole="text">
+          ENVIROCATALYSTS
+        </Text>
 
-        <Text style={styles.title}>
+        <Text style={styles.title} accessibilityRole="header">
           Air Quality{"\n"}Overview
         </Text>
 
-        <Text style={styles.subtitle}>
+        <Text style={styles.subtitle} accessibilityRole="text">
           Compare air quality across cities and financial years.
         </Text>
 
         {error ? (
-          <View style={styles.errorCard}>
+          <View
+            style={styles.errorCard}
+            accessible
+            accessibilityRole="alert"
+            accessibilityLabel={`Connection problem: ${error}`}
+          >
             <Text style={styles.errorTitle}>Connection problem</Text>
             <Text style={styles.errorText}>{error}</Text>
 
@@ -113,71 +154,58 @@ function OverviewScreen() {
           </View>
         ) : null}
 
-        <Text style={styles.sectionTitle}>Select city</Text>
+        {/* 1. FINANCIAL YEAR FILTER */}
+        <FinancialYearSelector
+          availableYears={filters?.financialYears}
+          baseYear="FY2024-25"
+          comparisonYear="FY2025-26"
+        />
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.cityRow}
-          accessibilityLabel="City selection"
-        >
-          {filters?.cities?.map((city) => {
-            const selected = city === selectedCity;
+        {/* 2. CITY CATEGORY FILTER */}
+        <CityCategorySelector
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+        />
 
-            return (
-              <Pressable
-                key={city}
-                onPress={() => setSelectedCity(city)}
-                style={[
-                  styles.cityButton,
-                  selected && styles.cityButtonSelected,
-                ]}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`Select ${city}`}
-              >
-                <Text
-                  style={[
-                    styles.cityButtonText,
-                    selected && styles.cityButtonTextSelected,
-                  ]}
-                >
-                  {city}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        {/* 3. CITY SELECTOR */}
+        <CitySelector
+          cities={filters?.cities}
+          selectedCity={selectedCity}
+          onSelectCity={handleCitySelect}
+          updating={updatingCity}
+        />
 
-        <View style={styles.periodCard}>
-          <Text style={styles.cardTitle}>Comparison period</Text>
-
-          <View style={styles.yearRow}>
-            <View style={styles.yearBox}>
-              <Text style={styles.yearLabel}>BASE</Text>
-              <Text style={styles.yearValue}>FY2024-25</Text>
-            </View>
-
-            <View style={styles.yearBox}>
-              <Text style={styles.yearLabel}>COMPARE</Text>
-              <Text style={styles.yearValue}>FY2025-26</Text>
-            </View>
+        {/* Soft loading indicator while switching cities */}
+        {updatingCity ? (
+          <View
+            style={styles.updatingBanner}
+            accessible
+            accessibilityLabel={`Updating air quality metrics for ${selectedCity}`}
+          >
+            <ActivityIndicator size="small" color="#102A43" />
+            <Text style={styles.updatingBannerText}>
+              Updating data for {selectedCity}...
+            </Text>
           </View>
-        </View>
+        ) : null}
 
         {overview ? (
           <>
-            <Text style={styles.sectionTitle}>
+            <Text style={styles.sectionTitle} accessibilityRole="header">
               Average pollutant concentration
             </Text>
 
-            {overview.averagePollutantConcentration?.map((item) => {
-              const pollutant = item.pollutant || item.parameter_name;
+            {overview.averagePollutantConcentration?.map((item, index) => {
+              const pollutant = item.pollutant || item.parameter_name || "Unknown";
+              const key = `${item.city || selectedCity}-${item.financial_year || "FY"}-${pollutant}-${index}`;
 
               return (
                 <View
-                  key={`${item.financial_year}-${pollutant}`}
+                  key={key}
                   style={styles.metricCard}
+                  accessible
+                  accessibilityRole="summary"
+                  accessibilityLabel={`${pollutant} in ${item.financial_year}: average concentration ${item.average_concentration} ${item.unit || "µg/m³"}, based on ${item.days_available} available days`}
                 >
                   <View style={styles.metricHeader}>
                     <Text style={styles.metricName}>
@@ -204,20 +232,24 @@ function OverviewScreen() {
               );
             })}
 
-            <Text style={styles.sectionTitle}>
+            <Text style={styles.sectionTitle} accessibilityRole="header">
               AQI category days
             </Text>
 
-            {overview.aqiCategoryDays?.map((item) => {
-              const category = item.aqi_category || item.category;
+            {overview.aqiCategoryDays?.map((item, index) => {
+              const category = item.aqi_category || item.category || "Unknown";
+              const key = `${item.city || selectedCity}-${item.financial_year || "FY"}-${category}-${index}`;
 
               return (
                 <View
-                  key={`${item.financial_year}-${category}`}
+                  key={key}
                   style={styles.categoryRow}
+                  accessible
+                  accessibilityRole="summary"
+                  accessibilityLabel={`${category} AQI days in ${item.financial_year}: ${item.days} days`}
                 >
                   <Text style={styles.categoryName}>
-                    {category}
+                    {category} ({item.financial_year})
                   </Text>
 
                   <Text style={styles.categoryValue}>
@@ -227,20 +259,24 @@ function OverviewScreen() {
               );
             })}
 
-            <Text style={styles.sectionTitle}>
+            <Text style={styles.sectionTitle} accessibilityRole="header">
               Dominant pollutant days
             </Text>
 
-            {overview.dominantPollutantDays?.map((item) => {
-              const pollutant = item.pollutant || item.dominant_pollutant;
+            {overview.dominantPollutantDays?.map((item, index) => {
+              const pollutant = item.pollutant || item.dominant_pollutant || "Unknown";
+              const key = `${item.city || selectedCity}-${item.financial_year || "FY"}-${pollutant}-${index}`;
 
               return (
                 <View
-                  key={`${item.financial_year}-${pollutant}`}
+                  key={key}
                   style={styles.categoryRow}
+                  accessible
+                  accessibilityRole="summary"
+                  accessibilityLabel={`${pollutant} dominant pollutant in ${item.financial_year}: ${item.days} days`}
                 >
                   <Text style={styles.categoryName}>
-                    {pollutant}
+                    {pollutant} ({item.financial_year})
                   </Text>
 
                   <Text style={styles.categoryValue}>
@@ -252,7 +288,11 @@ function OverviewScreen() {
           </>
         ) : null}
 
-        <View style={styles.noteCard}>
+        <View
+          style={styles.noteCard}
+          accessible
+          accessibilityLabel="Data coverage note: AQI results are shown only when the required data coverage is available. FY2025-26 currently contains partial data in the available source."
+        >
           <Text style={styles.noteTitle}>Data coverage note</Text>
 
           <Text style={styles.noteText}>
@@ -335,7 +375,7 @@ const styles = StyleSheet.create({
 
   container: {
     paddingHorizontal: 20,
-    paddingTop: 28,
+    paddingTop: 24,
     paddingBottom: 40,
   },
 
@@ -347,9 +387,10 @@ const styles = StyleSheet.create({
   },
 
   loadingText: {
-    marginTop: 12,
+    marginTop: 14,
     fontSize: 15,
-    color: "#627D98",
+    fontWeight: "600",
+    color: "#486581",
   },
 
   eyebrow: {
@@ -357,134 +398,112 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 1.5,
     color: "#52606D",
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   title: {
-    fontSize: 36,
-    lineHeight: 42,
+    fontSize: 34,
+    lineHeight: 40,
     fontWeight: "800",
     color: "#102A43",
   },
 
   subtitle: {
-    marginTop: 14,
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#627D98",
-  },
-
-  sectionTitle: {
-    marginTop: 28,
-    marginBottom: 12,
-    fontSize: 19,
-    fontWeight: "700",
-    color: "#102A43",
-  },
-
-  cityRow: {
-    gap: 10,
-    paddingRight: 10,
-  },
-
-  cityButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#D9E2EC",
-  },
-
-  cityButtonSelected: {
-    backgroundColor: "#102A43",
-    borderColor: "#102A43",
-  },
-
-  cityButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#486581",
-  },
-
-  cityButtonTextSelected: {
-    color: "#FFFFFF",
-  },
-
-  periodCard: {
-    marginTop: 24,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 18,
-    elevation: 3,
-  },
-
-  cardTitle: {
-    fontSize: 19,
-    fontWeight: "700",
-    color: "#102A43",
-  },
-
-  cardText: {
     marginTop: 10,
+    marginBottom: 20,
     fontSize: 15,
     lineHeight: 22,
     color: "#627D98",
   },
 
-  yearRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 16,
-  },
-
-  yearBox: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: "#F0F4F8",
-  },
-
-  yearLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-    color: "#829AB1",
-  },
-
-  yearValue: {
-    marginTop: 6,
-    fontSize: 14,
+  sectionTitle: {
+    marginTop: 24,
+    marginBottom: 12,
+    fontSize: 18,
     fontWeight: "700",
     color: "#102A43",
   },
 
+  updatingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#EBF8FF",
+    borderWidth: 1,
+    borderColor: "#BEE3F8",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+
+  updatingBannerText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#2B6CB0",
+  },
+
+  periodCard: {
+    marginTop: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    elevation: 2,
+  },
+
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#102A43",
+  },
+
+  cardText: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#627D98",
+  },
+
   metricCard: {
-    marginBottom: 10,
-    padding: 16,
+    marginBottom: 12,
+    padding: 18,
     borderRadius: 16,
     backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#102A43",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
     elevation: 2,
   },
 
   metricHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
 
   metricName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
     color: "#102A43",
   },
 
   metricYear: {
-    fontSize: 13,
-    color: "#829AB1",
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#627D98",
+    backgroundColor: "#F0F4F8",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
 
   metricValue: {
-    marginTop: 12,
+    marginTop: 10,
     fontSize: 28,
     fontWeight: "800",
     color: "#102A43",
@@ -492,6 +511,7 @@ const styles = StyleSheet.create({
 
   metricUnit: {
     fontSize: 13,
+    fontWeight: "500",
     color: "#627D98",
   },
 
@@ -506,9 +526,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     marginBottom: 8,
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
 
   categoryName: {
@@ -518,7 +541,7 @@ const styles = StyleSheet.create({
   },
 
   categoryValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
     color: "#102A43",
   },
@@ -528,38 +551,42 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     backgroundColor: "#FFF8E1",
+    borderWidth: 1,
+    borderColor: "#FEFCBF",
   },
 
   noteTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
     color: "#7C5E10",
   },
 
   noteText: {
-    marginTop: 8,
+    marginTop: 6,
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 19,
     color: "#6B5A1E",
   },
 
   errorCard: {
-    marginTop: 20,
+    marginBottom: 16,
     padding: 16,
     borderRadius: 16,
     backgroundColor: "#FFF5F5",
+    borderWidth: 1,
+    borderColor: "#FED7D7",
   },
 
   errorTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
     color: "#9B2C2C",
   },
 
   errorText: {
-    marginTop: 6,
-    fontSize: 14,
-    lineHeight: 20,
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
     color: "#742A2A",
   },
 
@@ -575,5 +602,6 @@ const styles = StyleSheet.create({
   retryText: {
     color: "#FFFFFF",
     fontWeight: "700",
+    fontSize: 13,
   },
 });
