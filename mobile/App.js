@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -22,6 +22,7 @@ import DominantPollutantDaysCard from "./src/components/DominantPollutantDaysCar
 import StationSelector from "./src/components/StationSelector";
 import PollutantSelector from "./src/components/PollutantSelector";
 import PeriodSelector from "./src/components/PeriodSelector";
+import HourlyTrendChart from "./src/components/HourlyTrendChart";
 
 const Stack = createNativeStackNavigator();
 
@@ -415,6 +416,7 @@ function HourlyScreen({ route, navigation }) {
     }
 
     const currentRequestId = ++hourlyRequestIdRef.current;
+    setHourlyData(null);
     setLoadingHourly(true);
     setHourlyError("");
 
@@ -506,6 +508,74 @@ function HourlyScreen({ route, navigation }) {
   const activeRange = currentAvailability
     ? calculatePeriodRange(currentAvailability.min_date, currentAvailability.max_date, selectedPeriod)
     : { start: null, end: null };
+
+  const selectedPollutantMetadata = filters?.pollutants?.find(
+    (p) => p.pollutant === selectedPollutant
+  );
+  const unit =
+    selectedPollutantMetadata?.unit || (selectedPollutant === "CO" ? "mg/m³" : "µg/m³");
+  const unitA11y =
+    selectedPollutant === "CO" || unit.includes("mg")
+      ? "milligrams per cubic metre"
+      : "micrograms per cubic metre";
+
+  const decimals = selectedPollutant === "CO" ? 2 : 1;
+  const formatConcentration = (val) => {
+    if (val === null || val === undefined || isNaN(val)) return "N/A";
+    return Number(val).toFixed(decimals);
+  };
+
+  const sortedHourlyList = useMemo(() => {
+    const raw = Array.isArray(hourlyData?.data) ? hourlyData.data : [];
+    return [...raw].sort((a, b) => {
+      const tA = new Date(
+        a.period_start?.includes("T") ? a.period_start : a.period_start?.replace(" ", "T") + "Z"
+      ).getTime();
+      const tB = new Date(
+        b.period_start?.includes("T") ? b.period_start : b.period_start?.replace(" ", "T") + "Z"
+      ).getTime();
+      return tA - tB;
+    });
+  }, [hourlyData]);
+
+  const validHourlyMeans = useMemo(() => {
+    return sortedHourlyList
+      .map((d) => d.mean)
+      .filter((v) => v !== null && v !== undefined && !isNaN(Number(v)));
+  }, [sortedHourlyList]);
+
+  const latestReading =
+    validHourlyMeans.length > 0 ? validHourlyMeans[validHourlyMeans.length - 1] : null;
+  const periodAverage =
+    validHourlyMeans.length > 0
+      ? validHourlyMeans.reduce((acc, v) => acc + Number(v), 0) / validHourlyMeans.length
+      : null;
+  const minReading =
+    validHourlyMeans.length > 0 ? Math.min(...validHourlyMeans.map(Number)) : null;
+  const maxReading =
+    validHourlyMeans.length > 0 ? Math.max(...validHourlyMeans.map(Number)) : null;
+  const observationsCount = validHourlyMeans.length;
+
+  const expectedObservations =
+    selectedPeriod === "24H" || selectedPeriod === "24 Hours"
+      ? 24
+      : selectedPeriod === "7D" || selectedPeriod === "7 Days"
+      ? 168
+      : 720;
+
+  const isPartialData = observationsCount < expectedObservations;
+  const coverageNote = isPartialData
+    ? "Some hourly observations are unavailable in this period."
+    : "Showing available hourly observations for the selected period.";
+
+  const periodDisplayName =
+    selectedPeriod === "24H"
+      ? "24 Hours"
+      : selectedPeriod === "7D"
+      ? "7 Days"
+      : selectedPeriod === "30D"
+      ? "30 Days"
+      : selectedPeriod;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -619,54 +689,166 @@ function HourlyScreen({ route, navigation }) {
           <View
             style={styles.emptyCard}
             accessible
+            accessibilityRole="text"
             accessibilityLabel="No hourly readings available for this selection"
           >
             <Text style={styles.emptyTitle}>No Readings</Text>
             <Text style={styles.emptyText}>
               No hourly readings available for this selection.
             </Text>
+            <Pressable
+              style={styles.retryButton}
+              onPress={() => {
+                if (activeRange.start && activeRange.end) {
+                  fetchHourlyReadings(
+                    selectedCity,
+                    selectedStation,
+                    selectedPollutant,
+                    activeRange.start,
+                    activeRange.end,
+                    selectedPeriod
+                  );
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading hourly readings"
+            >
+              <Text style={styles.retryText}>Retry</Text>
+            </Pressable>
           </View>
         ) : (
-          <View
-            style={styles.readingsCard}
-            accessible
-            accessibilityLabel={`Loaded ${hourlyData.count} hourly readings for ${selectedPollutant} at station ${selectedStation}`}
-          >
-            <View style={styles.readingsHeaderRow}>
-              <Text style={styles.readingsTitle}>Readings Summary</Text>
-              <View style={styles.countPill}>
-                <Text style={styles.countPillText}>{hourlyData.count} records</Text>
+          <>
+            {/* 7. CURRENT SELECTION / CONTEXT */}
+            <View
+              style={styles.contextCard}
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel={`Hourly analysis for ${selectedCity}, station ${selectedStation}, ${selectedPollutant}. Period: ${periodDisplayName}, from ${activeRange.start} to ${activeRange.end}.`}
+            >
+              <View style={styles.contextHeaderRow}>
+                <Text style={styles.contextEyebrow}>CURRENT SELECTION</Text>
+                <View style={styles.contextPeriodPill}>
+                  <Text style={styles.contextPeriodText}>{periodDisplayName}</Text>
+                </View>
               </View>
-            </View>
 
-            <View style={styles.readingsMetaGrid}>
-              <View style={styles.readingsMetaItem}>
-                <Text style={styles.readingsMetaLabel}>Station</Text>
-                <Text style={styles.readingsMetaValue}>{selectedStation}</Text>
-              </View>
-              <View style={styles.readingsMetaItem}>
-                <Text style={styles.readingsMetaLabel}>Pollutant</Text>
-                <Text style={styles.readingsMetaValue}>{selectedPollutant}</Text>
-              </View>
-              <View style={styles.readingsMetaItem}>
-                <Text style={styles.readingsMetaLabel}>Period</Text>
-                <Text style={styles.readingsMetaValue}>{selectedPeriod}</Text>
-              </View>
-            </View>
-
-            <View style={styles.windowInfoRow}>
-              <Text style={styles.windowInfoLabel}>Query Window:</Text>
-              <Text style={styles.windowInfoValue}>
-                {activeRange.start} → {activeRange.end}
+              <Text style={styles.contextCityStation}>
+                {selectedCity} • {selectedStation}
               </Text>
+
+              <View style={styles.contextMetaRow}>
+                <View style={styles.contextPollutantBadge}>
+                  <Text style={styles.contextPollutantText}>{selectedPollutant}</Text>
+                  <Text style={styles.contextUnitText}>({unit})</Text>
+                </View>
+
+                <View style={styles.contextRangeBadge}>
+                  <Text style={styles.contextRangeText}>
+                    {activeRange.start} → {activeRange.end}
+                  </Text>
+                </View>
+              </View>
             </View>
 
-            <View style={styles.milestoneNotice}>
-              <Text style={styles.milestoneNoticeText}>
-                Filter controls active • Chart visualization coming in Milestone 5B
-              </Text>
+            {/* 8. KEY METRICS SUMMARY */}
+            <View style={styles.metricsContainer}>
+              <View style={styles.metricsRow}>
+                {/* LATEST */}
+                <View
+                  style={styles.metricTile}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={`Latest reading: ${formatConcentration(latestReading)} ${unitA11y}`}
+                >
+                  <Text style={styles.metricLabel}>LATEST</Text>
+                  <Text style={styles.metricValue}>
+                    {formatConcentration(latestReading)}
+                    <Text style={styles.metricUnitText}> {unit}</Text>
+                  </Text>
+                </View>
+
+                {/* PERIOD AVERAGE */}
+                <View
+                  style={styles.metricTile}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={`Period average: ${formatConcentration(periodAverage)} ${unitA11y}`}
+                >
+                  <Text style={styles.metricLabel}>PERIOD AVERAGE</Text>
+                  <Text style={styles.metricValue}>
+                    {formatConcentration(periodAverage)}
+                    <Text style={styles.metricUnitText}> {unit}</Text>
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.metricsRow}>
+                {/* MIN */}
+                <View
+                  style={styles.metricTile}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={`Minimum reading: ${formatConcentration(minReading)} ${unitA11y}`}
+                >
+                  <Text style={styles.metricLabel}>MIN</Text>
+                  <Text style={styles.metricValue}>
+                    {formatConcentration(minReading)}
+                    <Text style={styles.metricUnitText}> {unit}</Text>
+                  </Text>
+                </View>
+
+                {/* MAX */}
+                <View
+                  style={styles.metricTile}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={`Maximum reading: ${formatConcentration(maxReading)} ${unitA11y}`}
+                >
+                  <Text style={styles.metricLabel}>MAX</Text>
+                  <Text style={styles.metricValue}>
+                    {formatConcentration(maxReading)}
+                    <Text style={styles.metricUnitText}> {unit}</Text>
+                  </Text>
+                </View>
+
+                {/* OBSERVATIONS */}
+                <View
+                  style={styles.metricTile}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={`Observations count: ${observationsCount}`}
+                >
+                  <Text style={styles.metricLabel}>OBSERVATIONS</Text>
+                  <Text style={styles.metricValue}>{observationsCount}</Text>
+                </View>
+              </View>
             </View>
-          </View>
+
+            {/* 9. HOURLY TREND CHART */}
+            <HourlyTrendChart
+              data={hourlyData}
+              pollutant={selectedPollutant}
+              unit={unit}
+              period={selectedPeriod}
+              city={selectedCity}
+              station={selectedStation}
+              startDate={activeRange.start}
+              endDate={activeRange.end}
+            />
+
+            {/* 10. DATA COVERAGE / OBSERVATION NOTE */}
+            <View
+              style={styles.coverageNoteCard}
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel={`Data coverage note: ${coverageNote}`}
+            >
+              <View style={styles.coverageNoteIconWrap}>
+                <Text style={styles.coverageNoteIcon}>ℹ</Text>
+              </View>
+              <Text style={styles.coverageNoteText}>{coverageNote}</Text>
+            </View>
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -1091,80 +1273,165 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  readingsHeaderRow: {
+  contextCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#102A43",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  contextHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: 6,
   },
-  readingsTitle: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: "#102A43",
+  contextEyebrow: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    color: "#627D98",
   },
-  countPill: {
-    backgroundColor: "#EBF8FF",
+  contextPeriodPill: {
+    backgroundColor: "#EFF6FF",
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#BEE3F8",
+    borderColor: "#BFDBFE",
   },
-  countPillText: {
+  contextPeriodText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#2B6CB0",
+    color: "#1D4ED8",
   },
-  readingsMetaGrid: {
+  contextCityStation: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#102A43",
+    marginBottom: 10,
+  },
+  contextMetaRow: {
     flexDirection: "row",
-    backgroundColor: "#F8FAFC",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-    justifyContent: "space-around",
-  },
-  readingsMetaItem: {
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderColor: "#F1F5F9",
   },
-  readingsMetaLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#829AB1",
-    marginBottom: 2,
+  contextPollutantBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
-  readingsMetaValue: {
-    fontSize: 14,
+  contextPollutantText: {
+    fontSize: 13,
     fontWeight: "700",
     color: "#102A43",
+    marginRight: 4,
   },
-  windowInfoRow: {
+  contextUnitText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#627D98",
+  },
+  contextRangeBadge: {
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  contextRangeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#486581",
+  },
+  metricsContainer: {
+    marginTop: 14,
+  },
+  metricsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderColor: "#F0F4F8",
+    marginBottom: 10,
   },
-  windowInfoLabel: {
-    fontSize: 12,
+  metricTile: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    shadowColor: "#102A43",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    color: "#627D98",
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  metricValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#102A43",
+    textAlign: "center",
+  },
+  metricUnitText: {
+    fontSize: 11,
     fontWeight: "600",
     color: "#627D98",
   },
-  windowInfoValue: {
+  coverageNoteCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  coverageNoteIconWrap: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  coverageNoteIcon: {
     fontSize: 12,
+    color: "#486581",
     fontWeight: "700",
-    color: "#102A43",
   },
-  milestoneNotice: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderColor: "#F0F4F8",
-  },
-  milestoneNoticeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#829AB1",
-    textAlign: "center",
+  coverageNoteText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#486581",
+    lineHeight: 17,
   },
 });
