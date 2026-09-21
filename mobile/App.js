@@ -18,6 +18,7 @@ import CitySelector from "./src/components/CitySelector";
 import CityCategorySelector from "./src/components/CityCategorySelector";
 import AqiCategoryDaysCard from "./src/components/AqiCategoryDaysCard";
 import AveragePollutantConcentrationCard from "./src/components/AveragePollutantConcentrationCard";
+import DominantPollutantDaysCard from "./src/components/DominantPollutantDaysCard";
 
 const Stack = createNativeStackNavigator();
 
@@ -210,32 +211,14 @@ function OverviewScreen() {
               pollutantMetadata={filters?.pollutants}
             />
 
-            <Text style={styles.sectionTitle} accessibilityRole="header">
-              Dominant pollutant days
-            </Text>
-
-            {overview.dominantPollutantDays?.map((item, index) => {
-              const pollutant = item.pollutant || item.dominant_pollutant || "Unknown";
-              const key = `${item.city || selectedCity}-${item.financial_year || "FY"}-${pollutant}-${index}`;
-
-              return (
-                <View
-                  key={key}
-                  style={styles.categoryRow}
-                  accessible
-                  accessibilityRole="summary"
-                  accessibilityLabel={`${pollutant} dominant pollutant in ${item.financial_year}: ${item.days} days`}
-                >
-                  <Text style={styles.categoryName}>
-                    {pollutant} ({item.financial_year})
-                  </Text>
-
-                  <Text style={styles.categoryValue}>
-                    {item.days}
-                  </Text>
-                </View>
-              );
-            })}
+            {/* 3. DOMINANT POLLUTANT DAYS (THIRD MAJOR ANALYSIS SECTION) */}
+            <DominantPollutantDaysCard
+              dominantPollutantDays={overview.dominantPollutantDays}
+              baseYear={overview.filters?.baseYear || "FY2024-25"}
+              comparisonYear={overview.filters?.comparisonYear || "FY2025-26"}
+              city={selectedCity}
+              pollutantMetadata={filters?.pollutants}
+            />
           </>
         ) : null}
 
