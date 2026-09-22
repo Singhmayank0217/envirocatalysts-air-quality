@@ -7,7 +7,12 @@ export default function CitySelector({
   selectedCity = "Delhi",
   onSelectCity,
   updating = false,
+  showAllOption = true,
 }) {
+  const displayCities = showAllOption && !cities.includes("All Cities")
+    ? ["All Cities", ...cities]
+    : cities;
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -32,7 +37,7 @@ export default function CitySelector({
         accessibilityRole="tablist"
         accessibilityLabel="Available cities filter"
       >
-        {cities.map((city) => {
+        {displayCities.map((city) => {
           const isSelected = city === selectedCity;
 
           return (

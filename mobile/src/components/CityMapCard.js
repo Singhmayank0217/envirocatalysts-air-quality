@@ -52,6 +52,7 @@ export default function CityMapCard({
   loading = false,
   error = "",
   selectedCity = "Delhi",
+  selectedState = "All States",
   onSelectCity = () => {},
   baseYear = "FY2024-25",
   comparisonYear = "FY2025-26",
@@ -61,6 +62,17 @@ export default function CityMapCard({
   const filters = data?.filters || {};
   const resolvedBaseYear = filters.baseYear || baseYear || "FY2024-25";
   const resolvedCompYear = filters.comparisonYear || comparisonYear || "FY2025-26";
+  const resolvedState = filters.state || selectedState || "All States";
+
+  const isStateFiltered = Boolean(
+    resolvedState && resolvedState !== "All States" && resolvedState !== "All"
+  );
+
+  const stateCities = isStateFiltered
+    ? cityList.filter(
+        (c) => c.state && c.state.toLowerCase() === resolvedState.toLowerCase()
+      )
+    : cityList;
 
   // Check coordinates availability from real DB data
   const mappedCities = cityList.filter(
@@ -71,9 +83,13 @@ export default function CityMapCard({
 
   // Find selected city record
   const selectedRecord =
-    cityList.find(
-      (c) => c.city && selectedCity && c.city.toLowerCase() === selectedCity.toLowerCase()
-    ) || cityList[0] || null;
+    (selectedCity && selectedCity !== "All Cities" && selectedCity !== "All"
+      ? cityList.find(
+          (c) => c.city && c.city.toLowerCase() === selectedCity.toLowerCase()
+        )
+      : null) ||
+    (isStateFiltered ? stateCities[0] : cityList[0]) ||
+    null;
 
   const selectedBaseValue = selectedRecord?.base?.value;
   const selectedBaseCategory = selectedRecord?.base?.category || "N/A";
@@ -194,6 +210,7 @@ export default function CityMapCard({
       <CityMap
         cities={cityList}
         selectedCity={selectedCity}
+        selectedState={resolvedState}
         onSelectCity={onSelectCity}
         baseYear={resolvedBaseYear}
       />
@@ -325,11 +342,11 @@ export default function CityMapCard({
 
           {/* City Selection Grid */}
           <Text style={styles.gridSectionTitle} accessibilityRole="header">
-            All Cities AQI Summary ({cityList.length})
+            {isStateFiltered ? `${resolvedState} Cities` : "All Cities"} AQI Summary ({stateCities.length})
           </Text>
 
           <View style={styles.cityGrid}>
-            {cityList.map((item) => {
+            {stateCities.map((item) => {
               const isSelected =
                 item.city &&
                 selectedCity &&

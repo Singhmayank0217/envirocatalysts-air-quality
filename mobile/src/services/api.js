@@ -14,18 +14,49 @@ export async function getFilters() {
     return request("/v1/filters");
 }
 
-export async function getOverview(city = "Delhi", baseYear, comparisonYear) {
-    const queryParams = [`city=${encodeURIComponent(city)}`];
+export async function getCities(state) {
+    const query = state && state !== "All States" && state !== "All"
+        ? `?state=${encodeURIComponent(state)}`
+        : "";
+    return request(`/cities${query}`);
+}
 
-    if (baseYear) {
-        queryParams.push(`baseYear=${encodeURIComponent(baseYear)}`);
+export async function getOverview(cityOrOptions = "Delhi", baseYear, comparisonYear, state) {
+    let targetCity = "Delhi";
+    let targetState = null;
+    let targetBaseYear = baseYear;
+    let targetCompYear = comparisonYear;
+
+    if (typeof cityOrOptions === "object" && cityOrOptions !== null) {
+        targetCity = cityOrOptions.city ?? "Delhi";
+        targetState = cityOrOptions.state ?? null;
+        targetBaseYear = cityOrOptions.baseYear ?? baseYear;
+        targetCompYear = cityOrOptions.comparisonYear ?? comparisonYear;
+    } else {
+        targetCity = cityOrOptions;
+        targetState = state ?? null;
     }
 
-    if (comparisonYear) {
-        queryParams.push(`comparisonYear=${encodeURIComponent(comparisonYear)}`);
+    const queryParams = [];
+
+    if (targetCity && targetCity !== "All" && targetCity !== "All Cities") {
+        queryParams.push(`city=${encodeURIComponent(targetCity)}`);
     }
 
-    return request(`/overview?${queryParams.join("&")}`);
+    if (targetState && targetState !== "All States" && targetState !== "All") {
+        queryParams.push(`state=${encodeURIComponent(targetState)}`);
+    }
+
+    if (targetBaseYear) {
+        queryParams.push(`baseYear=${encodeURIComponent(targetBaseYear)}`);
+    }
+
+    if (targetCompYear) {
+        queryParams.push(`comparisonYear=${encodeURIComponent(targetCompYear)}`);
+    }
+
+    const query = queryParams.length > 0 ? `?${queryParams.join("&")}` : "";
+    return request(`/overview${query}`);
 }
 
 export async function getStations(city) {
@@ -63,11 +94,15 @@ export async function getHourly({ city, station, pollutant, start, end, limit } 
     return request(`/hourly?${queryParams.join("&")}`);
 }
 
-export async function getCityMap({ city, baseYear, comparisonYear, metric } = {}) {
+export async function getCityMap({ city, state, baseYear, comparisonYear, metric } = {}) {
     const queryParams = [];
 
-    if (city && city !== "All") {
+    if (city && city !== "All" && city !== "All Cities") {
         queryParams.push(`city=${encodeURIComponent(city)}`);
+    }
+
+    if (state && state !== "All States" && state !== "All") {
+        queryParams.push(`state=${encodeURIComponent(state)}`);
     }
 
     if (baseYear) {

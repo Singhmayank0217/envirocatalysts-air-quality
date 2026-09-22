@@ -58,10 +58,12 @@ export default function AveragePollutantConcentrationCard({
     ? averagePollutantConcentration
     : [];
 
+  const isAllCities = !city || city === "All" || city === "All Cities";
+
   // Filter items matching the requested city (or all if not city-specific)
   const cityItems = safeItems.filter((item) => {
     const itemCity = item.city || item.requested_city;
-    return !itemCity || !city || itemCity.toLowerCase() === city.toLowerCase();
+    return isAllCities || !itemCity || itemCity.toLowerCase() === city.toLowerCase();
   });
 
   // Build metadata lookup from API filters / metadata if provided
@@ -75,22 +77,41 @@ export default function AveragePollutantConcentrationCard({
     });
   }
 
-  // Index records by financial year and pollutant
-  const baseMap = new Map();
-  const compMap = new Map();
+  // Index records by financial year and pollutant (averaging across cities if multiple exist)
+  const baseAgg = new Map();
+  const compAgg = new Map();
 
   cityItems.forEach((item) => {
     const pol = item.pollutant || item.parameter_name;
     const year = item.financial_year;
     if (!pol || !year) return;
 
-    if (year === baseYear) {
-      baseMap.set(pol, item);
-      baseMap.set(pol.toUpperCase(), item);
-    } else if (year === comparisonYear) {
-      compMap.set(pol, item);
-      compMap.set(pol.toUpperCase(), item);
+    const targetAgg = year === baseYear ? baseAgg : year === comparisonYear ? compAgg : null;
+    if (targetAgg) {
+      if (!targetAgg.has(pol)) {
+        targetAgg.set(pol, { sum: 0, count: 0, days: 0, sample: item });
+      }
+      const entry = targetAgg.get(pol);
+      entry.sum += (Number(item.average_concentration) || 0);
+      entry.count += 1;
+      entry.days += (Number(item.days_available) || 0);
     }
+  });
+
+  const baseMap = new Map();
+  baseAgg.forEach((val, pol) => {
+    const avg = val.count > 0 ? Number((val.sum / val.count).toFixed(2)) : 0;
+    const rec = { ...val.sample, average_concentration: avg, days_available: val.days };
+    baseMap.set(pol, rec);
+    baseMap.set(pol.toUpperCase(), rec);
+  });
+
+  const compMap = new Map();
+  compAgg.forEach((val, pol) => {
+    const avg = val.count > 0 ? Number((val.sum / val.count).toFixed(2)) : 0;
+    const rec = { ...val.sample, average_concentration: avg, days_available: val.days };
+    compMap.set(pol, rec);
+    compMap.set(pol.toUpperCase(), rec);
   });
 
   // Gather distinct pollutants present in data

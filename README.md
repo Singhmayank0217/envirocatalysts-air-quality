@@ -46,6 +46,10 @@ A mobile-first cross-platform application for comparative urban air quality anal
     - *Why:* Users and auditors must know exactly what data exists and where gaps occur.
     - *What changed:* National program classifications (NCAP, MPC, IGP, Delhi NCR, State Capitals) remain disabled with a "Coming from API" label because authoritative category metadata is not in the schema. Incomplete FY2025-26 AQI is explicitly flagged as "Insufficient Data", and exact verified date ranges are documented.
 
+11. **Authoritative State Filter & Filter Synchronization**
+    - *Why:* Users need to filter environmental metrics and cities by administrative state boundary (e.g. Maharashtra, Gujarat, Karnataka) without relying on fabricated category classifications.
+    - *What changed:* Connected the verified `city_metadata` SQLite database to the backend (`/api/v1/filters`, `/api/cities?state=`, `/api/overview?state=`, `/api/city-map?state=`), built a dedicated `StateSelector` component, placed State at the top of the filter hierarchy (`State → City → City Category → Financial Year`), implemented filter synchronization (selecting a state updates available cities and resets to "All Cities"; selecting a city retains valid state), dimmed out-of-state map markers with disabled touch interaction, and added strict validation returning HTTP 400 on invalid or mismatching state queries. National program categories (`NCAP`, `MPC`, `IGP`, `Delhi NCR`, `State Capitals`) remain disabled pending authoritative source data.
+
 ---
 
 ## 1. Project Overview & Problem Solved
@@ -124,27 +128,29 @@ Screen 1 serves as the primary comparative evaluation dashboard, analyzing air q
 
 1. **Header & Navigation**:
    - Displays the platform title and a touch-friendly navigation button (`Hourly →`) with `hitSlop` protection to transition seamlessly to Screen 2.
-2. **Financial Year Selector**:
-   - Paired period selection cards: Benchmark Period (`FY2024-25`) vs Evaluation Period (`FY2025-26`).
-3. **City Category Selector**:
+2. **State Selector (Milestone 9D - Authoritative Metadata)**:
+   - Horizontal filter chips dynamically populated from `city_metadata` via `/api/v1/filters`: `All States`, `Delhi`, `Gujarat`, `Karnataka`, `Maharashtra`, `Tamil Nadu`, `Telangana`, `West Bengal`. Selecting a state updates available cities and resets to "All Cities" aggregation.
+3. **City Selector**:
+   - Touch-friendly horizontal chips with `minHeight: 44` allowing rapid switching across monitored metropolitan areas within the active state (or all 8 cities when `All States` is selected). Includes an `All Cities` aggregate option.
+4. **City Category Selector**:
    - Horizontal filter chips: `All Cities`, `NCAP`, `MPC`, `IGP`, `Delhi NCR`, `State Capitals`.
    - *Data integrity*: Program categories without authoritative schema metadata are rendered with a `"Coming from API"` pill and marked as disabled to prevent synthetic classification fabrication.
-4. **City Selector**:
-   - Touch-friendly horizontal chips with `minHeight: 44` allowing rapid switching across all 8 monitored metropolitan areas.
-5. **Dynamic Live Update Banner**:
+5. **Financial Year Selector**:
+   - Paired period selection cards: Benchmark Period (`FY2024-25`) vs Evaluation Period (`FY2025-26`).
+6. **Dynamic Live Update Banner**:
    - Non-blocking inline banner with `accessibilityLiveRegion="polite"` announcing background metric refreshes without jarring screen rebuilds.
-6. **Fresh Public Air Quality Data Card (`PublicDataCard`)**:
+7. **Fresh Public Air Quality Data Card (`PublicDataCard`)**:
    - Displays live PM2.5 observations from OpenAQ API v3 for New Delhi. Supports full Loading, Error (with retry), Empty, and Loaded states. Clearly labeled as a point observation from an external monitoring station.
-7. **AQI Category Days Card**:
+8. **AQI Category Days Card**:
    - Paired horizontal proportional bar charts comparing days spent in each CPCB health category (*Good*, *Satisfactory*, *Moderate*, *Poor*, *Very Poor*, *Severe*) between FY2024-25 and FY2025-26.
    - For FY2025-26 where required secondary gases are unavailable, the card accurately presents `"No data"` / `"Insufficient Data"` rather than misleading zero bars.
-8. **Average Pollutant Concentration Card**:
+9. **Average Pollutant Concentration Card**:
    - Annual mean concentrations for PM2.5, PM10, NO2, SO2, CO, and Ozone, with units (`µg/m³` and `mg/m³`) and calculated percentage deltas.
-9. **Dominant Pollutant Days Card**:
-   - Tracks which pollutant was the primary driver of poor air quality across monitored days.
-10. **Interactive City Air Quality Map (`CityMapCard`)**:
-    - Calibrated SVG India map with 48×48dp circular touch markers colored by CPCB AQI category. Two-way synchronized with city filter chips. Includes an accessible 2-column city summary grid below the map for non-spatial navigation.
-11. **Data Coverage & Attribution Footers**:
+10. **Dominant Pollutant Days Card**:
+    - Tracks which pollutant was the primary driver of poor air quality across monitored days.
+11. **Interactive City Air Quality Map (`CityMapCard`)**:
+    - Calibrated SVG India map with 48×48dp circular touch markers colored by CPCB AQI category. Two-way synchronized with city and state filter chips. Out-of-state markers dim to 30% opacity and are disabled when a state is filtered. Includes an accessible 2-column city summary grid below the map for non-spatial navigation.
+12. **Data Coverage & Attribution Footers**:
     - Plain-language methodology explanations and data source acknowledgments.
 
 ### Screen 2 — Hourly Air Quality Analysis (`HourlyScreen`)
@@ -350,23 +356,23 @@ The application was comprehensively audited and remediated in Milestone 8. Compl
 
 | Audit Dimension | Measured Value | Standard / Requirement | Status |
 |---|---|---|---|
-| **Mobile Source Files Scanned** | 18 files | 100% of mobile codebase | **PASS** |
-| **Total JSX Elements Parsed** | 529 elements | All rendered components | **PASS** |
-| **Total `accessibilityRole` Usages** | 67 declarations | Standard React Native roles | **PASS** |
+| **Mobile Source Files Scanned** | 19 files | 100% of mobile codebase | **PASS** |
+| **Total JSX Elements Parsed** | 547 elements | All rendered components | **PASS** |
+| **Total `accessibilityRole` Usages** | 71 declarations | Standard React Native roles | **PASS** |
 | **Invalid React Native Roles** | 0 | 0 allowed | **PASS** |
 | **Forbidden Roles (`summary`, `note`, `status`)** | 0 | 0 allowed | **PASS** |
-| **Interactive Elements (`<Pressable>`)** | 11 instances | 100% with role and label | **PASS** |
+| **Interactive Elements (`<Pressable>`)** | 12 instances | 100% with role and label | **PASS** |
 | **Touch Target Size** | All $\ge 44\times 44\text{ dp}$ | WCAG 2.5.5 / Apple / Google guidelines | **PASS** |
-| **Touch Target Enhancements (`hitSlop`)** | 8 declarations | For compact buttons/markers | **PASS** |
+| **Touch Target Enhancements (`hitSlop`)** | 9 declarations | For compact buttons/markers | **PASS** |
 | **Dynamic Live Regions** | 1 declaration | `accessibilityLiveRegion="polite"` | **PASS** |
 | **Color Contrast Remediation (`#486581`)** | 29 usages across 8 files | $\ge 4.5:1$ WCAG 2.1 AA | **PASS** |
 | **Two-Screen-Size Layout Verification** | 360×800 and 430×932 | No clipping, no overflow | **PASS** |
 | **Physical TalkBack / VoiceOver Testing** | Headless environment | Physical audio execution | **NOT RUN** |
 
 ### Key Accessibility Features
-* **Role Verification**: 67 explicit roles (`text`: 24, `header`: 20, `button`: 11, `tablist`: 5, `alert`: 4, `progressbar`: 3). Non-standard or deprecated roles were eliminated.
+* **Role Verification**: 71 explicit roles (`text`: 24, `header`: 21, `button`: 12, `tablist`: 6, `alert`: 5, `progressbar`: 3). Non-standard or deprecated roles were eliminated.
 * **Selection & Disabled States**: Interactive chips declare `accessibilityState={{ selected, disabled }}` so screen readers announce current state.
-* **Touch Targets**: All `<Pressable>` targets are either naturally $\ge 44\times 44\text{ dp}$ (chips, cards) or have explicit `hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}`. Map markers feature 48×48dp targets.
+* **Touch Targets**: All `<Pressable>` targets are either naturally $\ge 44\times 44\text{ dp}$ (chips, cards) or have explicit `hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}`. Map markers feature 48×48dp targets. Out-of-state map markers are disabled when state is filtered.
 * **Two Mobile Viewports**: Verified at **360 × 800 dp** (compact mobile) and **430 × 932 dp** (flagship mobile) with zero horizontal clipping or text overlap.
 * **Text Alternatives for Visualizations**: SVG trend charts and maps include comprehensive dynamic text descriptions summarizing trends, metrics, and city AQI for non-sighted users. Internal SVG nodes declare `accessible={false}` to prevent focus traps.
 * **High Contrast Text**: Secondary readable text color `#486581` provides a 6.5:1 contrast ratio against white cards (surpassing the 4.5:1 WCAG AA threshold).
@@ -380,14 +386,14 @@ The backend runs on Node.js / Express 5.1 on port **3000** (`http://localhost:30
 | Method | Endpoint | Query Parameters | Description |
 |:---:|:---|:---|:---|
 | `GET` | `/api/health` | None | API service and database health check |
-| `GET` | `/api/cities` | None | List of the 8 monitored metropolitan cities |
+| `GET` | `/api/cities` | `state` (optional) | List of monitored cities. Filter by state (e.g. `?state=Maharashtra` -> Mumbai, Pune). Returns 400 on invalid state. |
 | `GET` | `/api/pollutants` | None | Monitored pollutants with display names and units |
 | `GET` | `/api/financial-years` | None | Distinct financial years available in database |
-| `GET` | `/api/v1/filters` | None | Aggregated filter options (cities, pollutants, financial years) |
-| `GET` | `/api/overview` | `city`, `baseYear`, `comparisonYear` | Multi-pollutant means, AQI category days, dominant pollutant days |
+| `GET` | `/api/v1/filters` | None | Dynamic filter options: `states` (from `city_metadata`), `cities`, `pollutants`, `financialYears` |
+| `GET` | `/api/overview` | `city`, `state`, `baseYear`, `comparisonYear` | Multi-pollutant means, AQI category days, dominant pollutant days. Validates city belongs to state; returns 400 on mismatch or invalid state. Supports `All Cities` aggregate across state. |
 | `GET` | `/api/stations` | `city` | Monitoring stations and parameter date ranges for a city |
 | `GET` | `/api/hourly` | `city`, `station`, `pollutant`, `start`, `end`, `limit` | Time-series hourly observations (default limit 5000, max 20000) |
-| `GET` | `/api/city-map` | `city`, `baseYear`, `comparisonYear`, `metric` | Geospatial city coordinates and annual AQI metrics for map visualization |
+| `GET` | `/api/city-map` | `city`, `state`, `baseYear`, `comparisonYear`, `metric` | Geospatial city coordinates and annual AQI metrics for map visualization across all 8 cities |
 | `GET` | `/api/public-data/latest` | None | Latest fresh PM2.5 observation from OpenAQ |
 
 All endpoints have versioned aliases under `/api/v1/` (e.g., `/api/v1/overview`).

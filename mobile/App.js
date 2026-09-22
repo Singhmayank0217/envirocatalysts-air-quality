@@ -12,7 +12,8 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-import { getFilters, getOverview, getStations, getHourly, getCityMap } from "./src/services/api";
+import { getFilters, getOverview, getStations, getHourly, getCityMap, getCities } from "./src/services/api";
+import StateSelector from "./src/components/StateSelector";
 import FinancialYearSelector from "./src/components/FinancialYearSelector";
 import CitySelector from "./src/components/CitySelector";
 import CityCategorySelector from "./src/components/CityCategorySelector";
@@ -30,12 +31,16 @@ const Stack = createNativeStackNavigator();
 
 function OverviewScreen({ navigation }) {
   const [filters, setFilters] = useState(null);
+  const [selectedState, setSelectedState] = useState("All States");
+  const [availableCities, setAvailableCities] = useState([]);
   const [selectedCity, setSelectedCity] = useState("Delhi");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updatingCity, setUpdatingCity] = useState(false);
   const [error, setError] = useState("");
+  const [stateLoading, setStateLoading] = useState(false);
+  const [stateError, setStateError] = useState("");
 
   const [cityMapData, setCityMapData] = useState(null);
   const [cityMapLoading, setCityMapLoading] = useState(false);
@@ -51,13 +56,14 @@ function OverviewScreen({ navigation }) {
     loadFilters();
   }, []);
 
-  async function loadCityMapData(bYear = baseYear, cYear = comparisonYear) {
+  async function loadCityMapData(bYear = baseYear, cYear = comparisonYear, st = selectedState) {
     try {
       setCityMapLoading(true);
       setCityMapError("");
       const data = await getCityMap({
         baseYear: bYear,
         comparisonYear: cYear,
+        state: st,
         metric: "aqi",
       });
       setCityMapData(data);
@@ -70,17 +76,19 @@ function OverviewScreen({ navigation }) {
   }
 
   useEffect(() => {
-    loadCityMapData(baseYear, comparisonYear);
+    loadCityMapData(baseYear, comparisonYear, selectedState);
   }, [baseYear, comparisonYear]);
+
+  const hourlyNavCity = selectedCity && selectedCity !== "All Cities" ? selectedCity : "Delhi";
 
   useEffect(() => {
     if (navigation) {
       navigation.setOptions({
         headerRight: () => (
           <Pressable
-            onPress={() => navigation.navigate("Hourly", { city: selectedCity })}
+            onPress={() => navigation.navigate("Hourly", { city: hourlyNavCity })}
             accessibilityRole="button"
-            accessibilityLabel={`Go to Hourly Analysis for ${selectedCity}`}
+            accessibilityLabel={`Go to Hourly Analysis for ${hourlyNavCity}`}
             style={styles.headerRightButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -89,13 +97,7 @@ function OverviewScreen({ navigation }) {
         ),
       });
     }
-  }, [navigation, selectedCity]);
-
-  useEffect(() => {
-    if (filters) {
-      loadOverview(selectedCity);
-    }
-  }, [selectedCity, filters]);
+  }, [navigation, hourlyNavCity]);
 
   async function loadFilters() {
     try {
@@ -105,20 +107,23 @@ function OverviewScreen({ navigation }) {
 
       setFilters(data);
 
-      if (data.cities?.length > 0) {
-        setSelectedCity(data.cities.includes("Delhi") ? "Delhi" : data.cities[0]);
-      }
+      const cities = data.cities || [];
+      setAvailableCities(cities);
+      setSelectedState("All States");
+      setSelectedCity("Delhi");
+
+      await loadOverview("Delhi", "All States");
     } catch (err) {
       console.error(err);
       setError("Unable to connect to the air quality API.");
     }
   }
 
-  async function loadOverview(city) {
+  async function loadOverview(city = selectedCity, state = selectedState) {
     const currentRequestId = ++requestIdRef.current;
 
     try {
-      // Preserve previous overview on screen during city updates
+      // Preserve previous overview on screen during updates
       if (overview) {
         setUpdatingCity(true);
       } else {
@@ -126,7 +131,7 @@ function OverviewScreen({ navigation }) {
       }
       setError("");
 
-      const data = await getOverview(city);
+      const data = await getOverview(city, baseYear, comparisonYear, state);
 
       // Discard stale responses from older requests
       if (currentRequestId !== requestIdRef.current) {
@@ -148,12 +153,46 @@ function OverviewScreen({ navigation }) {
     }
   }
 
+  async function handleStateSelect(state) {
+    if (state === selectedState && overview) {
+      return;
+    }
+    setSelectedState(state);
+    setStateError("");
+
+    try {
+      setStateLoading(true);
+      if (state === "All States" || state === "All") {
+        setAvailableCities(filters?.cities || []);
+        setSelectedCity("All Cities");
+        await Promise.all([
+          loadOverview("All Cities", "All States"),
+          loadCityMapData(baseYear, comparisonYear, "All States"),
+        ]);
+      } else {
+        const res = await getCities(state);
+        const citiesInState = res?.cities || [];
+        setAvailableCities(citiesInState);
+        setSelectedCity("All Cities");
+        await Promise.all([
+          loadOverview("All Cities", state),
+          loadCityMapData(baseYear, comparisonYear, state),
+        ]);
+      }
+    } catch (err) {
+      console.error(err);
+      setStateError(`Unable to load cities for ${state}.`);
+    } finally {
+      setStateLoading(false);
+    }
+  }
+
   function handleCitySelect(city) {
-    // Avoid redundant API requests when tapping the already selected city
     if (city === selectedCity && overview) {
       return;
     }
     setSelectedCity(city);
+    loadOverview(city, selectedState);
   }
 
   if (loading && !overview) {
@@ -191,16 +230,16 @@ function OverviewScreen({ navigation }) {
 
         <Pressable
           style={styles.navCard}
-          onPress={() => navigation.navigate("Hourly", { city: selectedCity })}
+          onPress={() => navigation.navigate("Hourly", { city: hourlyNavCity })}
           accessibilityRole="button"
-          accessibilityLabel={`Open Hourly Air Quality Analysis for ${selectedCity}`}
+          accessibilityLabel={`Open Hourly Air Quality Analysis for ${hourlyNavCity}`}
         >
           <View style={styles.navCardRow}>
             <View style={styles.navCardTextContainer}>
               <Text style={styles.navCardEyebrow}>SCREEN 2</Text>
               <Text style={styles.navCardTitle}>Hourly Air Quality Analysis</Text>
               <Text style={styles.navCardSubtitle}>
-                Explore station-level hourly trends for {selectedCity}
+                Explore station-level hourly trends for {hourlyNavCity}
               </Text>
             </View>
             <View style={styles.navCardBadge}>
@@ -221,7 +260,7 @@ function OverviewScreen({ navigation }) {
 
             <Pressable
               style={styles.retryButton}
-              onPress={() => loadOverview(selectedCity)}
+              onPress={() => loadOverview(selectedCity, selectedState)}
               accessibilityRole="button"
               accessibilityLabel="Retry loading air quality data"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -231,28 +270,39 @@ function OverviewScreen({ navigation }) {
           </View>
         ) : null}
 
-        {/* 1. FINANCIAL YEAR FILTER */}
+        {/* 1. STATE FILTER (MILESTONE 9D - AUTHORITATIVE METADATA) */}
+        <StateSelector
+          states={filters?.states || []}
+          selectedState={selectedState}
+          onSelectState={handleStateSelect}
+          loading={stateLoading}
+          error={stateError}
+          onRetry={() => handleStateSelect(selectedState)}
+        />
+
+        {/* 2. CITY SELECTOR */}
+        <CitySelector
+          cities={availableCities.length > 0 ? availableCities : (filters?.cities || [])}
+          selectedCity={selectedCity}
+          onSelectCity={handleCitySelect}
+          updating={updatingCity}
+          showAllOption={true}
+        />
+
+        {/* 3. CITY CATEGORY FILTER */}
+        <CityCategorySelector
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+        />
+
+        {/* 4. FINANCIAL YEAR FILTER */}
         <FinancialYearSelector
           availableYears={filters?.financialYears}
           baseYear="FY2024-25"
           comparisonYear="FY2025-26"
         />
 
-        {/* 2. CITY CATEGORY FILTER */}
-        <CityCategorySelector
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-        />
-
-        {/* 3. CITY SELECTOR */}
-        <CitySelector
-          cities={filters?.cities}
-          selectedCity={selectedCity}
-          onSelectCity={handleCitySelect}
-          updating={updatingCity}
-        />
-
-        {/* Soft loading indicator while switching cities */}
+        {/* Soft loading indicator while switching cities or states */}
         {updatingCity ? (
           <View
             style={styles.updatingBanner}
@@ -304,10 +354,11 @@ function OverviewScreen({ navigation }) {
               loading={cityMapLoading}
               error={cityMapError}
               selectedCity={selectedCity}
+              selectedState={selectedState}
               onSelectCity={handleCitySelect}
               baseYear={baseYear}
               comparisonYear={comparisonYear}
-              onRetry={() => loadCityMapData(baseYear, comparisonYear)}
+              onRetry={() => loadCityMapData(baseYear, comparisonYear, selectedState)}
             />
           </>
         ) : null}

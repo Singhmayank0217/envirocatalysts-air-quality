@@ -52,10 +52,12 @@ export default function DominantPollutantDaysCard({
     ? dominantPollutantDays
     : [];
 
+  const isAllCities = !city || city === "All" || city === "All Cities";
+
   // Filter items matching the requested city (or all if not city-specific)
   const cityItems = safeItems.filter((item) => {
     const itemCity = item.city || item.requested_city;
-    return !itemCity || !city || itemCity.toLowerCase() === city.toLowerCase();
+    return isAllCities || !itemCity || itemCity.toLowerCase() === city.toLowerCase();
   });
 
   // Segregate into base year and comparison year items
@@ -80,13 +82,24 @@ export default function DominantPollutantDaysCard({
     });
   }
 
-  // Index records by pollutant for base and comparison years
+  // Index records by pollutant for base and comparison years (aggregating days)
   const baseMap = new Map();
   baseItems.forEach((item) => {
     const pol = item.pollutant || item.dominant_pollutant;
     if (pol) {
-      baseMap.set(pol, item);
-      baseMap.set(pol.toUpperCase(), item);
+      const existing = baseMap.get(pol);
+      if (existing) {
+        const aggregated = {
+          ...existing,
+          days: (existing.days || 0) + (Number(item.days) || 0),
+        };
+        baseMap.set(pol, aggregated);
+        baseMap.set(pol.toUpperCase(), aggregated);
+      } else {
+        const record = { ...item, days: Number(item.days) || 0 };
+        baseMap.set(pol, record);
+        baseMap.set(pol.toUpperCase(), record);
+      }
     }
   });
 
@@ -94,8 +107,19 @@ export default function DominantPollutantDaysCard({
   comparisonItems.forEach((item) => {
     const pol = item.pollutant || item.dominant_pollutant;
     if (pol) {
-      compMap.set(pol, item);
-      compMap.set(pol.toUpperCase(), item);
+      const existing = compMap.get(pol);
+      if (existing) {
+        const aggregated = {
+          ...existing,
+          days: (existing.days || 0) + (Number(item.days) || 0),
+        };
+        compMap.set(pol, aggregated);
+        compMap.set(pol.toUpperCase(), aggregated);
+      } else {
+        const record = { ...item, days: Number(item.days) || 0 };
+        compMap.set(pol, record);
+        compMap.set(pol.toUpperCase(), record);
+      }
     }
   });
 

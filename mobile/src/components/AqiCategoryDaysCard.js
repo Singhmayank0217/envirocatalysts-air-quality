@@ -59,13 +59,14 @@ export default function AqiCategoryDaysCard({
   city = "Delhi",
 }) {
   const safeItems = Array.isArray(aqiCategoryDays) ? aqiCategoryDays : [];
+  const isAllCities = !city || city === "All" || city === "All Cities";
 
   // Filter rows for base year and comparison year (scoped to city if present)
   const baseItems = safeItems.filter((item) => {
     const itemYear = item.financial_year || item.year;
     const itemCity = item.city || item.requested_city;
     const yearMatch = itemYear === baseYear;
-    const cityMatch = !itemCity || !city || itemCity.toLowerCase() === city.toLowerCase();
+    const cityMatch = isAllCities || !itemCity || itemCity.toLowerCase() === city.toLowerCase();
     return yearMatch && cityMatch;
   });
 
@@ -73,24 +74,40 @@ export default function AqiCategoryDaysCard({
     const itemYear = item.financial_year || item.year;
     const itemCity = item.city || item.requested_city;
     const yearMatch = itemYear === comparisonYear;
-    const cityMatch = !itemCity || !city || itemCity.toLowerCase() === city.toLowerCase();
+    const cityMatch = isAllCities || !itemCity || itemCity.toLowerCase() === city.toLowerCase();
     return yearMatch && cityMatch;
   });
 
-  // Maps for fast, case-insensitive lookup
+  // Maps for fast, case-insensitive lookup (aggregated by category)
   const baseMap = new Map();
   baseItems.forEach((item) => {
-    const cat = item.aqi_category || item.category;
+    const cat = (item.aqi_category || item.category || "").toLowerCase();
     if (cat) {
-      baseMap.set(cat.toLowerCase(), item);
+      const existing = baseMap.get(cat);
+      if (existing) {
+        baseMap.set(cat, {
+          ...existing,
+          days: (existing.days || 0) + (Number(item.days) || 0),
+        });
+      } else {
+        baseMap.set(cat, { ...item, days: Number(item.days) || 0 });
+      }
     }
   });
 
   const comparisonMap = new Map();
   comparisonItems.forEach((item) => {
-    const cat = item.aqi_category || item.category;
+    const cat = (item.aqi_category || item.category || "").toLowerCase();
     if (cat) {
-      comparisonMap.set(cat.toLowerCase(), item);
+      const existing = comparisonMap.get(cat);
+      if (existing) {
+        comparisonMap.set(cat, {
+          ...existing,
+          days: (existing.days || 0) + (Number(item.days) || 0),
+        });
+      } else {
+        comparisonMap.set(cat, { ...item, days: Number(item.days) || 0 });
+      }
     }
   });
 

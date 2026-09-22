@@ -30,6 +30,32 @@ app.get("/api/health", (req, res) => {
 
 app.get("/api/cities", (req, res) => {
     try {
+        const { state } = req.query;
+
+        if (state && state !== "All States" && state !== "All") {
+            const stateExists = db.prepare(`
+                SELECT 1 FROM city_metadata WHERE state = ? COLLATE NOCASE
+            `).get(state);
+
+            if (!stateExists) {
+                return res.status(400).json({
+                    error: `Invalid state '${state}'`
+                });
+            }
+
+            const rows = db.prepare(`
+                SELECT DISTINCT c.requested_city AS city
+                FROM city_daily_metrics c
+                JOIN city_metadata m ON c.requested_city = m.city
+                WHERE m.state = ? COLLATE NOCASE
+                ORDER BY c.requested_city
+            `).all(state);
+
+            return res.json({
+                cities: rows.map(row => row.city)
+            });
+        }
+
         const rows = db.prepare(`
       SELECT DISTINCT requested_city AS city
       FROM city_daily_metrics
@@ -105,6 +131,18 @@ app.get("/api/financial-years", (req, res) => {
 
 app.get("/api/v1/filters", (req, res) => {
     try {
+        const stateRows = db.prepare(`
+            SELECT DISTINCT state
+            FROM city_metadata
+            WHERE state IS NOT NULL AND state != ''
+            ORDER BY state
+        `).all();
+
+        const states = [
+            "All States",
+            ...stateRows.map(row => row.state)
+        ];
+
         const cities = db.prepare(`
             SELECT DISTINCT requested_city AS city
             FROM city_daily_metrics
@@ -124,6 +162,7 @@ app.get("/api/v1/filters", (req, res) => {
         `).all();
 
         res.json({
+            states,
             cities: cities.map(row => row.city),
             pollutants,
             financialYears: financialYears.map(
@@ -156,13 +195,57 @@ app.get("/api/overview", (req, res) => {
 
         const {
             city,
+            state,
             baseYear = "FY2024-25",
             comparisonYear = "FY2025-26"
         } = req.query;
 
-        const concentrationParams = [];
+        const isSpecificState = state && state !== "All States" && state !== "All";
+        const isSpecificCity = city && city !== "All" && city !== "All Cities";
 
-        let concentrationSQL = `
+        // Validate state if provided
+        if (isSpecificState) {
+            const stateExists = db.prepare(`
+                SELECT 1 FROM city_metadata WHERE state = ? COLLATE NOCASE
+            `).get(state);
+
+            if (!stateExists) {
+                return res.status(400).json({
+                    error: `Invalid state '${state}'`
+                });
+            }
+        }
+
+        // Validate city belongs to state if both are specified
+        if (isSpecificState && isSpecificCity) {
+            const cityInState = db.prepare(`
+                SELECT 1 FROM city_metadata
+                WHERE city = ? COLLATE NOCASE AND state = ? COLLATE NOCASE
+            `).get(city, state);
+
+            if (!cityInState) {
+                return res.status(400).json({
+                    error: `City '${city}' does not belong to state '${state}'`
+                });
+            }
+        }
+
+        // Filter for pollutant concentration summary
+        const concentrationParams = [
+            baseYear,
+            comparisonYear
+        ];
+
+        let concentrationFilter = "";
+        if (isSpecificCity) {
+            concentrationFilter = " AND requested_city = ? COLLATE NOCASE";
+            concentrationParams.push(city);
+        } else if (isSpecificState) {
+            concentrationFilter = " AND requested_city IN (SELECT city FROM city_metadata WHERE state = ? COLLATE NOCASE)";
+            concentrationParams.push(state);
+        }
+
+        const concentrationSQL = `
       SELECT
         requested_city AS city,
         financial_year,
@@ -172,22 +255,7 @@ app.get("/api/overview", (req, res) => {
         days_available
       FROM pollutant_concentration_summary
       WHERE financial_year IN (?, ?)
-    `;
-
-        concentrationParams.push(
-            baseYear,
-            comparisonYear
-        );
-
-        if (city) {
-            concentrationSQL += `
-        AND requested_city = ?
-      `;
-
-            concentrationParams.push(city);
-        }
-
-        concentrationSQL += `
+      ${concentrationFilter}
       ORDER BY
         requested_city,
         financial_year,
@@ -200,13 +268,21 @@ app.get("/api/overview", (req, res) => {
 
 
         // AQI category days
-
         const categoryParams = [
             baseYear,
             comparisonYear
         ];
 
-        let categorySQL = `
+        let categoryFilter = "";
+        if (isSpecificCity) {
+            categoryFilter = " AND requested_city = ? COLLATE NOCASE";
+            categoryParams.push(city);
+        } else if (isSpecificState) {
+            categoryFilter = " AND requested_city IN (SELECT city FROM city_metadata WHERE state = ? COLLATE NOCASE)";
+            categoryParams.push(state);
+        }
+
+        const categorySQL = `
       SELECT
         requested_city AS city,
         financial_year,
@@ -214,17 +290,7 @@ app.get("/api/overview", (req, res) => {
         days
       FROM aqi_category_days
       WHERE financial_year IN (?, ?)
-    `;
-
-        if (city) {
-            categorySQL += `
-        AND requested_city = ?
-      `;
-
-            categoryParams.push(city);
-        }
-
-        categorySQL += `
+      ${categoryFilter}
       ORDER BY
         requested_city,
         financial_year,
@@ -237,13 +303,21 @@ app.get("/api/overview", (req, res) => {
 
 
         // Dominant pollutant days
-
         const dominantParams = [
             baseYear,
             comparisonYear
         ];
 
-        let dominantSQL = `
+        let dominantFilter = "";
+        if (isSpecificCity) {
+            dominantFilter = " AND requested_city = ? COLLATE NOCASE";
+            dominantParams.push(city);
+        } else if (isSpecificState) {
+            dominantFilter = " AND requested_city IN (SELECT city FROM city_metadata WHERE state = ? COLLATE NOCASE)";
+            dominantParams.push(state);
+        }
+
+        const dominantSQL = `
       SELECT
         requested_city AS city,
         financial_year,
@@ -251,17 +325,7 @@ app.get("/api/overview", (req, res) => {
         days
       FROM dominant_pollutant_days
       WHERE financial_year IN (?, ?)
-    `;
-
-        if (city) {
-            dominantSQL += `
-        AND requested_city = ?
-      `;
-
-            dominantParams.push(city);
-        }
-
-        dominantSQL += `
+      ${dominantFilter}
       ORDER BY
         requested_city,
         financial_year,
@@ -275,6 +339,7 @@ app.get("/api/overview", (req, res) => {
 
         res.json({
             filters: {
+                state: state || "All States",
                 city: city || "All",
                 baseYear,
                 comparisonYear
@@ -539,6 +604,7 @@ function handleCityMap(req, res) {
     try {
         const {
             city,
+            state,
             baseYear = "FY2024-25",
             comparisonYear = "FY2025-26",
             metric = "aqi"
@@ -550,6 +616,19 @@ function handleCityMap(req, res) {
             return res.status(400).json({
                 error: `Unsupported metric '${metric}'. Milestone 6A supports metric='aqi'. Concentration mapping will be supported in a future update.`
             });
+        }
+
+        const isSpecificState = state && state !== "All States" && state !== "All";
+        if (isSpecificState) {
+            const stateExists = db.prepare(`
+                SELECT 1 FROM city_metadata WHERE state = ? COLLATE NOCASE
+            `).get(state);
+
+            if (!stateExists) {
+                return res.status(400).json({
+                    error: `Invalid state '${state}'`
+                });
+            }
         }
 
         let citySQL = "SELECT DISTINCT requested_city AS city FROM city_daily_metrics";
@@ -626,6 +705,7 @@ function handleCityMap(req, res) {
 
         res.json({
             filters: {
+                state: state || "All States",
                 city: city || "All",
                 baseYear,
                 comparisonYear,

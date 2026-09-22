@@ -65,17 +65,29 @@ const DEFAULT_LABEL_CONFIG = {
 export default function CityMap({
   cities = [],
   selectedCity = "Delhi",
+  selectedState = "All States",
   onSelectCity = () => {},
   baseYear = "FY2024-25",
 }) {
+  const isStateFiltered = Boolean(
+    selectedState && selectedState !== "All States" && selectedState !== "All"
+  );
+
   // Project all cities with coordinates
   const projectedCities = cities
     .map((c) => {
       const coords = projectCoordinate(c.latitude, c.longitude);
       if (!coords) return null;
 
+      const isInState =
+        !isStateFiltered ||
+        (Boolean(c.state) && c.state.toLowerCase() === selectedState.toLowerCase());
+
       const isSelected =
+        isInState &&
         Boolean(selectedCity) &&
+        selectedCity !== "All Cities" &&
+        selectedCity !== "All" &&
         Boolean(c.city) &&
         c.city.toLowerCase() === selectedCity.toLowerCase();
 
@@ -94,6 +106,7 @@ export default function CityMap({
         y: coords.y,
         leftPercent: (coords.x / 1500) * 100,
         topPercent: (coords.y / 1615) * 100,
+        isInState,
         isSelected,
         aqiValue,
         category,
@@ -211,9 +224,12 @@ export default function CityMap({
       );
     }
 
-    // Unselected Marker: Highly readable badge with dark navy text on semi-opaque white
     return (
-      <G key={`svg-${c.city}`} onPress={() => onSelectCity(c.city)}>
+      <G
+        key={`svg-${c.city}`}
+        onPress={isStateFiltered && !c.isInState ? undefined : () => onSelectCity(c.city)}
+        opacity={isStateFiltered && !c.isInState ? 0.3 : 1.0}
+      >
         {/* Outer White Glow */}
         <Circle
           cx={c.x}
@@ -319,9 +335,12 @@ export default function CityMap({
 
         {/* Native Touch & Accessibility Overlay (48x48dp target) */}
         {projectedCities.map((c) => {
-          const markerA11yLabel = `${c.city}. AQI ${
-            c.aqiValue !== null ? c.aqiValue : "unavailable"
-          }. ${c.category}. Double tap to select.`;
+          const isMarkerDisabled = isStateFiltered && !c.isInState;
+          const markerA11yLabel = isMarkerDisabled
+            ? `${c.city} (${c.state || "other state"}). Not in ${selectedState}.`
+            : `${c.city}. AQI ${
+                c.aqiValue !== null ? c.aqiValue : "unavailable"
+              }. ${c.category}. Double tap to select.`;
 
           return (
             <Pressable
@@ -333,10 +352,12 @@ export default function CityMap({
                   top: `${c.topPercent}%`,
                 },
               ]}
-              onPress={() => onSelectCity(c.city)}
+              disabled={isMarkerDisabled}
+              onPress={() => !isMarkerDisabled && onSelectCity(c.city)}
               accessibilityRole="button"
               accessibilityState={{
                 selected: c.isSelected,
+                disabled: isMarkerDisabled,
               }}
               accessibilityLabel={markerA11yLabel}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
