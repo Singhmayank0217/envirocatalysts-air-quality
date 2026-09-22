@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
+import CityMap from "./CityMap";
 
 // CPCB AQI Category color palette
 const AQI_CATEGORY_COLORS = {
@@ -82,8 +83,8 @@ export default function CityMapCard({
 
   // Construct dynamic accessible description from real API values
   const accessibleDescription = [
-    `City air quality map.`,
-    `Showing ${totalCities || 8} cities for ${resolvedBaseYear}.`,
+    `Interactive city air quality map for ${resolvedBaseYear}.`,
+    `Showing ${totalCities || 8} cities across India.`,
     selectedRecord
       ? `${selectedRecord.city} AQI category: ${selectedBaseCategory}${
           selectedBaseValue !== null && selectedBaseValue !== undefined
@@ -94,7 +95,7 @@ export default function CityMapCard({
     selectedCompAvailable
       ? `${resolvedCompYear} AQI is ${selectedCompValue} (${selectedCompCategory}).`
       : `${resolvedCompYear} AQI is unavailable because sufficient pollutant data is not available.`,
-    `${mappedCount} of ${totalCities || 8} cities have coordinates mapped in metadata.`,
+    `${mappedCount} of ${totalCities || 8} cities mapped with verified geographic reference coordinates.`,
   ]
     .filter(Boolean)
     .join(" ");
@@ -167,7 +168,7 @@ export default function CityMapCard({
         <View style={styles.headerTopRow}>
           <Text style={styles.eyebrow}>SCREEN 1 · SPATIAL ANALYSIS</Text>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>MAP DATA FOUNDATION</Text>
+            <Text style={styles.badgeText}>INTERACTIVE MAP</Text>
           </View>
         </View>
         <Text style={styles.cardTitle} accessibilityRole="header">
@@ -178,20 +179,23 @@ export default function CityMapCard({
         </Text>
       </View>
 
-      {/* Coordinate Status Banner (Explicitly Visible Constraint: '0 of 8 cities mapped') */}
-      <View style={styles.coordStatusBanner}>
-        <View style={styles.coordStatusIcon}>
-          <Text style={styles.coordStatusIconText}>📍</Text>
+      {/* Map Period Header */}
+      <View style={styles.mapSectionHeader}>
+        <View style={styles.mapPeriodBadge}>
+          <Text style={styles.mapPeriodBadgeText}>{resolvedBaseYear} AQI</Text>
         </View>
-        <View style={styles.coordStatusTextGroup}>
-          <Text style={styles.coordStatusHeading} accessibilityRole="text">
-            {mappedCount} of {totalCities || 8} cities mapped
-          </Text>
-          <Text style={styles.coordStatusSubtext} accessibilityRole="text">
-            City coordinates are pending in database metadata. Coordinate mapping and interactive visual rendering will activate in Milestone 6B.
-          </Text>
-        </View>
+        <Text style={styles.mapPeriodNote}>
+          Tap any city marker to inspect
+        </Text>
       </View>
+
+      {/* Interactive Geographic City Map */}
+      <CityMap
+        cities={cityList}
+        selectedCity={selectedCity}
+        onSelectCity={onSelectCity}
+        baseYear={resolvedBaseYear}
+      />
 
       {/* Empty State */}
       {cityList.length === 0 ? (
@@ -394,11 +398,12 @@ export default function CityMapCard({
             })}
           </View>
 
-          {/* Map Readiness Blueprint Footer */}
-          <View style={styles.blueprintFooter}>
-            <Text style={styles.blueprintTag}>MILESTONE 6B READY</Text>
-            <Text style={styles.blueprintText} accessibilityRole="text">
-              API integration complete. City coordinates, spatial boundary overlays, and interactive visual map rendering will be wired in Milestone 6B.
+          {/* Map Attribution & Coordinate Metadata Footer */}
+          <View style={styles.attributionFooter}>
+            <Text style={styles.attributionTag}>MAP &amp; COORDINATE METADATA</Text>
+            <Text style={styles.attributionText}>
+              Coordinates: OpenStreetMap Nominatim city reference locations (March 2026).{"\n"}
+              Vector Asset: DataMeet Indian Maps Project (CC BY 2.5 IN / Open Data).
             </Text>
           </View>
         </>
@@ -463,42 +468,31 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Coordinate Status Banner
-  coordStatusBanner: {
+  // Map Section Header
+  mapSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  mapPeriodBadge: {
+    backgroundColor: "#EFF6FF",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    gap: 12,
+    borderColor: "#BFDBFE",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  coordStatusIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#E2E8F0",
-    alignItems: "center",
-    justifyContent: "center",
+  mapPeriodBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#1E40AF",
+    letterSpacing: 0.5,
   },
-  coordStatusIconText: {
-    fontSize: 16,
-  },
-  coordStatusTextGroup: {
-    flex: 1,
-  },
-  coordStatusHeading: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 2,
-  },
-  coordStatusSubtext: {
+  mapPeriodNote: {
     fontSize: 11,
+    fontWeight: "600",
     color: "#64748B",
-    lineHeight: 15,
   },
 
   // Selected City Card
@@ -695,24 +689,23 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // Blueprint Footer
-  blueprintFooter: {
+  // Attribution Footer
+  attributionFooter: {
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    borderStyle: "dashed",
     borderRadius: 12,
     padding: 12,
     alignItems: "center",
   },
-  blueprintTag: {
+  attributionTag: {
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
     color: "#475569",
     marginBottom: 4,
   },
-  blueprintText: {
+  attributionText: {
     fontSize: 11,
     color: "#64748B",
     textAlign: "center",
