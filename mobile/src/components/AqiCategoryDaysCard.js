@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   },
   summaryCaption: {
     fontSize: 11,
-    color: "#829AB1",
+    color: "#486581",
     marginTop: 2,
   },
 
@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
   categoryRange: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#829AB1",
+    color: "#486581",
   },
 
   // Bars
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     color: "#334E68",
   },
   compPeriodTag: {
-    color: "#829AB1",
+    color: "#486581",
   },
   track: {
     flex: 1,
@@ -616,6 +616,6 @@ const styles = StyleSheet.create({
   missingValue: {
     fontSize: 13,
     fontWeight: "500",
-    color: "#94A3B8",
+    color: "#486581",
   },
 });

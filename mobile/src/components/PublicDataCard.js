@@ -214,6 +214,7 @@ export default function PublicDataCard() {
             onPress={loadData}
             accessibilityRole="button"
             accessibilityLabel="Retry fetching fresh public air quality data"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
           </Pressable>
@@ -248,6 +249,7 @@ export default function PublicDataCard() {
             onPress={loadData}
             accessibilityRole="button"
             accessibilityLabel="Refresh public air quality data"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={styles.retryButtonText}>Check Again</Text>
           </Pressable>
@@ -553,7 +555,7 @@ const styles = StyleSheet.create({
   },
   disclaimerText: {
     fontSize: 10,
-    color: "#94A3B8",
+    color: "#486581",
     lineHeight: 14,
     flexShrink: 1,
     flexWrap: "wrap",
@@ -591,6 +593,10 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     backgroundColor: "#2563EB",
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 6,

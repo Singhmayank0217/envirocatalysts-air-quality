@@ -19,7 +19,7 @@ export default function FinancialYearSelector({
     <View
       style={styles.card}
       accessible
-      accessibilityRole="summary"
+      accessibilityRole="text"
       accessibilityLabel={`Comparison Period: Base period ${resolvedBaseYear} compared against evaluation period ${resolvedComparisonYear}`}
     >
       <View style={styles.headerRow}>
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   yearCaption: {
     marginTop: 4,
     fontSize: 11,
-    color: "#829AB1",
+    color: "#486581",
   },
   vsContainer: {
     width: 28,
@@ -176,6 +176,6 @@ const styles = StyleSheet.create({
   vsText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#829AB1",
+    color: "#486581",
   },
 });

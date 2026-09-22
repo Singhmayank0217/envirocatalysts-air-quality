@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   subtext: {
     marginTop: 2,
     fontSize: 11,
-    color: "#829AB1",
+    color: "#486581",
   },
   subtextSelected: {
     color: "#BCCCDC",

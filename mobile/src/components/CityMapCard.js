@@ -149,6 +149,7 @@ export default function CityMapCard({
             onPress={onRetry}
             accessibilityRole="button"
             accessibilityLabel="Retry loading city map data"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
           </Pressable>
@@ -345,6 +346,9 @@ export default function CityMapCard({
                   ]}
                   onPress={() => onSelectCity(item.city)}
                   accessibilityRole="button"
+                  accessibilityState={{
+                    selected: isSelected,
+                  }}
                   accessibilityLabel={`Select ${item.city}. ${resolvedBaseYear} AQI is ${
                     item.base?.value ?? "unavailable"
                   }, category ${category}. ${
@@ -590,7 +594,7 @@ const styles = StyleSheet.create({
   },
   daysAvailableText: {
     fontSize: 10,
-    color: "#94A3B8",
+    color: "#486581",
     marginTop: 4,
   },
   unavailableGroup: {
@@ -599,12 +603,12 @@ const styles = StyleSheet.create({
   unavailableValue: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#94A3B8",
+    color: "#486581",
     marginBottom: 4,
   },
   unavailableLabel: {
     fontSize: 11,
-    color: "#94A3B8",
+    color: "#486581",
   },
   insufficientText: {
     fontSize: 11,
@@ -747,6 +751,10 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     backgroundColor: "#991B1B",
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,

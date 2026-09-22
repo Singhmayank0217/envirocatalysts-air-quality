@@ -706,12 +706,12 @@ const styles = StyleSheet.create({
   noDataDash: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#94A3B8",
+    color: "#486581",
   },
   noDataLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#94A3B8",
+    color: "#486581",
   },
 
   // Empty state

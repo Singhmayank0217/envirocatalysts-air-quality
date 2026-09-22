@@ -335,6 +335,9 @@ export default function CityMap({
               ]}
               onPress={() => onSelectCity(c.city)}
               accessibilityRole="button"
+              accessibilityState={{
+                selected: c.isSelected,
+              }}
               accessibilityLabel={markerA11yLabel}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             />

@@ -82,6 +82,7 @@ function OverviewScreen({ navigation }) {
             accessibilityRole="button"
             accessibilityLabel={`Go to Hourly Analysis for ${selectedCity}`}
             style={styles.headerRightButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={styles.headerRightButtonText}>Hourly →</Text>
           </Pressable>
@@ -223,6 +224,7 @@ function OverviewScreen({ navigation }) {
               onPress={() => loadOverview(selectedCity)}
               accessibilityRole="button"
               accessibilityLabel="Retry loading air quality data"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Text style={styles.retryText}>Retry</Text>
             </Pressable>
@@ -255,6 +257,7 @@ function OverviewScreen({ navigation }) {
           <View
             style={styles.updatingBanner}
             accessible
+            accessibilityLiveRegion="polite"
             accessibilityLabel={`Updating air quality metrics for ${selectedCity}`}
           >
             <ActivityIndicator size="small" color="#102A43" />
@@ -727,6 +730,7 @@ function HourlyScreen({ route, navigation }) {
               }}
               accessibilityRole="button"
               accessibilityLabel="Retry loading hourly readings"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Text style={styles.retryText}>Retry</Text>
             </Pressable>
@@ -758,6 +762,7 @@ function HourlyScreen({ route, navigation }) {
               }}
               accessibilityRole="button"
               accessibilityLabel="Retry loading hourly readings"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Text style={styles.retryText}>Retry</Text>
             </Pressable>
@@ -1086,7 +1091,7 @@ const styles = StyleSheet.create({
   metricDays: {
     marginTop: 8,
     fontSize: 12,
-    color: "#829AB1",
+    color: "#486581",
   },
 
   categoryRow: {
@@ -1161,6 +1166,10 @@ const styles = StyleSheet.create({
   retryButton: {
     marginTop: 12,
     alignSelf: "flex-start",
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
@@ -1174,6 +1183,10 @@ const styles = StyleSheet.create({
   },
 
   headerRightButton: {
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -1303,7 +1316,7 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 6,
     fontSize: 13,
-    color: "#829AB1",
+    color: "#486581",
     textAlign: "center",
   },
   readingsCard: {

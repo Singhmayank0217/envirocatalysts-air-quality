@@ -287,7 +287,7 @@ export default function AveragePollutantConcentrationCard({
               key={`pollutant-comparison-${pol}`}
               style={styles.pollutantRow}
               accessible
-              accessibilityRole="summary"
+              accessibilityRole="text"
               accessibilityLabel={a11ySummary}
             >
               {/* Pollutant Card Top Row: Name, Unit, and Change Tag */}
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   benchmarkOnlyText: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#94A3B8",
+    color: "#486581",
   },
 
   // Bars Container
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   daysTag: {
     fontSize: 10,
     fontWeight: "500",
-    color: "#94A3B8",
+    color: "#486581",
     marginTop: 1,
   },
   track: {
@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
   },
   noDataTrackText: {
     fontSize: 10,
-    color: "#94A3B8",
+    color: "#486581",
     fontStyle: "italic",
     fontWeight: "500",
   },
@@ -704,13 +704,13 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   missingValueText: {
-    color: "#94A3B8",
+    color: "#486581",
     fontWeight: "600",
   },
   missingLabelText: {
     fontSize: 9,
     fontWeight: "500",
-    color: "#94A3B8",
+    color: "#486581",
     fontStyle: "italic",
   },
 });
