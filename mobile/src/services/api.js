@@ -85,3 +85,7 @@ export async function getCityMap({ city, baseYear, comparisonYear, metric } = {}
     const query = queryParams.length > 0 ? `?${queryParams.join("&")}` : "";
     return request(`/city-map${query}`);
 }
+
+export async function getPublicLatest() {
+    return request("/public-data/latest");
+}

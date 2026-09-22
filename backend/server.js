@@ -647,6 +647,81 @@ app.get("/api/v1/city-map", handleCityMap);
 
 
 // ----------------------------------------------------
+// PUBLIC DATA (OPENAQ FRESH OBSERVATIONS)
+// ----------------------------------------------------
+
+function handlePublicDataLatest(req, res) {
+    try {
+        const tableCheck = db.prepare(`
+            SELECT name FROM sqlite_master WHERE type='table' AND name='openaq_measurements'
+        `).get();
+
+        if (!tableCheck) {
+            return res.json({
+                source: "OpenAQ",
+                location: "New Delhi",
+                parameter: "PM2.5",
+                latest: null,
+                ingested_at: null,
+                message: "No public observation available."
+            });
+        }
+
+        const row = db.prepare(`
+            SELECT 
+                source,
+                location_name,
+                city,
+                country,
+                parameter,
+                unit,
+                period_start,
+                period_end,
+                value,
+                ingested_at
+            FROM openaq_measurements
+            WHERE parameter = 'PM2.5'
+            ORDER BY period_end DESC, id DESC
+            LIMIT 1
+        `).get();
+
+        if (!row) {
+            return res.json({
+                source: "OpenAQ",
+                location: "New Delhi",
+                parameter: "PM2.5",
+                latest: null,
+                ingested_at: null,
+                message: "No public observation available."
+            });
+        }
+
+        return res.json({
+            source: row.source || "OpenAQ",
+            location: row.city || row.location_name || "New Delhi",
+            parameter: row.parameter || "PM2.5",
+            latest: {
+                value: row.value,
+                unit: row.unit,
+                period_start: row.period_start,
+                period_end: row.period_end
+            },
+            ingested_at: row.ingested_at
+        });
+
+    } catch (error) {
+        console.error("Error fetching latest public data:", error);
+        return res.status(500).json({
+            error: "Failed to fetch public air quality observation"
+        });
+    }
+}
+
+app.get("/api/public-data/latest", handlePublicDataLatest);
+app.get("/api/v1/public-data/latest", handlePublicDataLatest);
+
+
+// ----------------------------------------------------
 // SERVER
 // ----------------------------------------------------
 

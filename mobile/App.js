@@ -24,6 +24,7 @@ import StationSelector from "./src/components/StationSelector";
 import PollutantSelector from "./src/components/PollutantSelector";
 import PeriodSelector from "./src/components/PeriodSelector";
 import HourlyTrendChart from "./src/components/HourlyTrendChart";
+import PublicDataCard from "./src/components/PublicDataCard";
 
 const Stack = createNativeStackNavigator();
 
@@ -262,6 +263,9 @@ function OverviewScreen({ navigation }) {
             </Text>
           </View>
         ) : null}
+
+        {/* FRESH PUBLIC AIR QUALITY DATA (OPENAQ MILESTONE 7A) */}
+        <PublicDataCard />
 
         {overview ? (
           <>
