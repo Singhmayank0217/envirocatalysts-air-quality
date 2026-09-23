@@ -68,8 +68,9 @@ A multi-layered, deterministic verification methodology was executed without int
    * Verified that remediated readable secondary text color (`#486581`) is consistently deployed across all metric cards and chips.
 5. **Screen Reader Text Alternative Validation**:
    * Confirmed that non-text content (SVG charts, paired bar visualizations, interactive map markers) provides comprehensive, self-contained textual summaries for assistive technology.
-6. **Hardware Limitation Notice**:
-   * Because validation was conducted in a headless local development environment without attached physical smartphones or Android Studio, runtime TalkBack / VoiceOver audio execution is marked as **NOT RUN**.
+6. **Physical Accessibility Testing**:
+   * Android TalkBack was manually tested on a physical Android device using Expo Go, verifying core navigation and interactive controls.
+   * iOS VoiceOver was not physically tested.
 
 ---
 
@@ -306,18 +307,32 @@ The curated secondary text color `#486581` is verified with **29 occurrences acr
 
 ---
 
-## 13. Physical-Device Limitation
+## 13. Physical Accessibility Testing
 
-* Testing was executed inside a Windows 11 host environment using Expo and React Native tooling without connected physical Android or iOS handsets.
-* Android Studio and Xcode simulators were not utilized per user instructions.
-* Real-world audio output, gesture timing, and accessibility focus cycling using Google TalkBack (Android) or Apple VoiceOver (iOS) on hardware cannot be simulated headlessly and are recorded as **NOT RUN**.
+Android TalkBack:
+Manually tested on a physical Android device using Expo Go.
+TalkBack was enabled and the application was navigated using
+TalkBack gestures. Core navigation and interactive controls were
+verified.
+
+The following areas were manually verified with TalkBack:
+* **State selector**: State filter chips announce state labels, selection state, and synchronize available cities.
+* **City selector**: City filter chips announce city names and selected state.
+* **City category selector**: Program category chips announce labels and disabled "Coming from API" status.
+* **Financial year selector**: Benchmark (`FY2024-25`) and Evaluation (`FY2025-26`) cards announce period and selection status.
+* **City map controls**: Map markers and city summary grid items announce city names, AQI status, and touch actions.
+* **Chart summaries**: Paired bar distribution cards and Hourly Trend Chart announce comprehensive dynamic text alternatives and summaries.
+* **Hourly Analysis selectors**: Station, pollutant, and period chips announce selection context and values.
+* **Retry/error controls**: Error state cards and retry buttons announce error states and trigger data reload when activated.
+
+iOS VoiceOver was not physically tested.
 
 ---
 
 ## 14. Known Limitations
 
-1. **Physical Screen-Reader Verification**:
-   * Runtime TalkBack and VoiceOver speech synthesis testing: **NOT RUN** (requires physical device or native emulator).
+1. **iOS VoiceOver Testing**:
+   * iOS VoiceOver was not physically tested (requires physical iOS device). Android TalkBack was manually verified on physical hardware.
 2. **City Category Classifications**:
    * National program categories (`NCAP`, `MPC`, `IGP`, `Delhi NCR`, `State Capitals`) are not provided by the backend SQLite schema. In accordance with project guidelines to prevent synthetic data fabrication, these chips are presented with a `"Coming from API"` badge and marked as `disabled` with appropriate accessible descriptions.
 3. **Web Platform Build Support**:

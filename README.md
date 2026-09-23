@@ -343,7 +343,7 @@ This range is backed by the database:
 ### Documented Limitations
 1. **FY2025-26 AQI Comparison**: For FY2025-26, the current dataset has only PM2.5 and PM10 coverage for the comparison period where applicable, so AQI-based comparison is marked unavailable/insufficient rather than calculated incorrectly.
 2. **National Program Categorization**: City categories (`NCAP`, `MPC`, `IGP`, `Delhi NCR`, `State Capitals`) are not present in the backend SQLite schema. In accordance with strict anti-fabrication guidelines, these filter chips remain disabled with a `"Coming from API"` indicator until authoritative government classification tables are integrated.
-3. **Physical Screen-Reader Verification**: Because verification was conducted inside a headless local Windows development environment without attached physical smartphones or native emulators, physical Google TalkBack (Android) and Apple VoiceOver (iOS) runtime audio testing was **NOT RUN**. All static AST checks, role audits, touch targets, and contrast ratios passed completely.
+3. **iOS VoiceOver Testing**: iOS VoiceOver was not physically tested. Android TalkBack was manually tested and verified on a physical Android device using Expo Go.
 4. **Web Platform Export**: React Native Web export (`react-native-web` / `react-dom`) is not configured to avoid heavy extraneous dependencies. Native Android bundling (`npx expo export --platform android`) was tested and verified with zero errors.
 
 ---
@@ -367,7 +367,31 @@ The application was comprehensively audited and remediated in Milestone 8. Compl
 | **Dynamic Live Regions** | 1 declaration | `accessibilityLiveRegion="polite"` | **PASS** |
 | **Color Contrast Remediation (`#486581`)** | 29 usages across 8 files | $\ge 4.5:1$ WCAG 2.1 AA | **PASS** |
 | **Two-Screen-Size Layout Verification** | 360×800 and 430×932 | No clipping, no overflow | **PASS** |
-| **Physical TalkBack / VoiceOver Testing** | Headless environment | Physical audio execution | **NOT RUN** |
+| **Physical TalkBack Testing** | Physical Android device (Expo Go) | Core navigation & controls verified | **PASS** |
+| **Physical iOS VoiceOver Testing** | Physical iOS device | Hardware screen reader execution | **NOT RUN** |
+
+### Physical Accessibility Validation
+
+Android TalkBack was manually tested on a physical Android device using Expo Go. Core application navigation and accessible interactive controls were verified with TalkBack:
+* State selector
+* City selector
+* City category selector
+* Financial year selector
+* City map controls
+* Chart summaries
+* Hourly Analysis selectors
+* Retry/error controls
+
+The automated accessibility audit also verifies:
+- no invalid React Native accessibility roles
+- no forbidden project roles
+- accessible labels on interactive controls
+- selected-state information where applicable
+- minimum touch-target protections
+- WCAG AA contrast requirements
+- live-region support for dynamic updates
+
+iOS VoiceOver was not physically tested.
 
 ### Key Accessibility Features
 * **Role Verification**: 71 explicit roles (`text`: 24, `header`: 21, `button`: 12, `tablist`: 6, `alert`: 5, `progressbar`: 3). Non-standard or deprecated roles were eliminated.
